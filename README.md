@@ -1,6 +1,10 @@
 ### SimpleServerClient ###
 Offers very simple and easy-to-use Java classes for Client-Server-Client or just Server-Client applications doing all the work for connection setup, reconnection, timeout, keep-alive, etc. in the background.
 
+**Code Quality**
+
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/3d5b115186f44ecab613ac3f2ca0015b)](https://www.codacy.com/app/DeBukkIt/SimpleServerClient?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=DeBukkIt/SimpleServerClient&amp;utm_campaign=Badge_Grade)
+
 # How to use THE SERVER
 ```java
 import java.net.Socket;
