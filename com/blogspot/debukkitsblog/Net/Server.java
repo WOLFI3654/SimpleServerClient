@@ -1,4 +1,4 @@
-package com.blogspot.debukkitsblog.Net;
+package com.blogspot.debukkitsblog.net;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -26,9 +26,9 @@ public abstract class Server {
 	private ServerSocket server;
 	private int port;
 	private ArrayList<Socket> clients;
+	private ArrayList<Socket> toBeDeleted;
 
 	private Thread listeningThread;
-	private Thread pingThread;
 
 	private boolean autoRegisterEveryClient;
 	private boolean secureMode;
@@ -113,6 +113,7 @@ public abstract class Server {
 	 * with identifier <i>_INTERNAL_LOGIN_</i> is received from a client.
 	 */
 	public void onClientRegistered() {
+		// Overwrite this method when extending this class
 	}
 
 	/**
@@ -121,6 +122,7 @@ public abstract class Server {
 	 * with identifier <i>_INTERNAL_LOGIN_</i> is received from a client.
 	 */
 	public void onClientRegistered(Datapackage msg, Socket socket) {
+		// Overwrite this method when extending this class
 	}
 
 	/**
@@ -131,6 +133,7 @@ public abstract class Server {
 	 *            The socket that has been removed from the list
 	 */
 	public void onSocketRemoved(Socket socket) {
+		// Overwrite this method when extending this class
 	}
 
 	/**
@@ -138,7 +141,7 @@ public abstract class Server {
 	 * connection alive.
 	 */
 	private void startPingThread() {
-		pingThread = new Thread(new Runnable() {
+		new Thread(new Runnable() {
 			@Override
 			public void run() {
 
@@ -151,8 +154,7 @@ public abstract class Server {
 				}
 
 			}
-		});
-		pingThread.start();
+		}).start();
 	}
 
 	/**
@@ -245,8 +247,6 @@ public abstract class Server {
 			}
 		}
 	}
-
-	private ArrayList<Socket> toBeDeleted;
 
 	/**
 	 * Broadcasts a Datapackage to every single logged-in socket,<br>

@@ -1,4 +1,4 @@
-package com.blogspot.debukkitsblog.Crypt;
+package com.blogspot.debukkitsblog.crypt;
 
 import java.math.BigInteger;
 import java.util.Random;

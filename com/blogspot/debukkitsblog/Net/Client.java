@@ -1,4 +1,4 @@
-package com.blogspot.debukkitsblog.Net;
+package com.blogspot.debukkitsblog.net;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -308,6 +308,7 @@ public class Client {
 	 * Warning: This method is executed on the main networking thread!
 	 */
 	public void onConnectionProblem() {
+		// Overwrite this method when extending this class
 	}
 
 	/**
@@ -316,6 +317,7 @@ public class Client {
 	 * Warning: This method is executed on the main networking thread!
 	 */
 	public void onConnectionGood() {
+		// Overwrite this method when extending this class
 	}
 
 	/**
@@ -323,6 +325,7 @@ public class Client {
 	 * Warning: This method is executed on the main networking thread!
 	 */
 	public void onReconnect() {
+		// Overwrite this method when extending this class
 	}
 
 }

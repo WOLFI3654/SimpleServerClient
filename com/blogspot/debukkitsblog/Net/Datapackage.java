@@ -1,4 +1,4 @@
-package com.blogspot.debukkitsblog.Net;
+package com.blogspot.debukkitsblog.net;
 
 import java.io.Serializable;
 import java.util.ArrayList;
