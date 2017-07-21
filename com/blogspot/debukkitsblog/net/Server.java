@@ -227,6 +227,20 @@ public abstract class Server {
     /**
      * Sends a Datapackage to a Socket
      * 
+     * @param clientid
+     *            The ID of the Client the Datapackage shall be delivered to
+     * @param ID
+     *            The identifier for later identification
+     * @param content
+     *            The content to deliver
+     */
+    public synchronized void sendMessage(Socket socket, String ID, Object... content) {
+        sendPackage(new Datapackage("Server", ID, content), socket);
+    }
+
+    /**
+     * Sends a Datapackage to a Socket
+     * 
      * @param pack
      *            The Datapackage to be delivered
      * @param clientid
@@ -254,6 +268,55 @@ public abstract class Server {
     }
 
     /**
+     * Sends a Datapackage to a Socket
+     * 
+     * @param pack
+     *            The Datapackage to be delivered
+     * @param socket
+     *            The Socket the Datapackage shall be delivered to
+     */
+    private synchronized void sendPackage(Datapackage pack, Socket socket) {
+        try {
+            // Nachricht senden
+            if (!socket.isConnected()) {
+                throw new Exception("Client not connected.");
+            }
+            ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+            out.writeObject(pack);
+        } catch (Exception e) {
+            System.err.println("[SendMessage] Fehler: " + e.getMessage());
+		}
+    }
+
+    /**
+     * Broadcasts a Datapackage to every single logged-in socket,<br>
+     * one after another on the calling thread.<br>
+     * Every erroneous (unreachable etc.) socket is being removed in the end
+     * 
+     * @param packt 
+     *          The Package to deliver
+     * @return The number of reachable the Datapackage has been delivered to
+     */
+    public synchronized int broadcastMessage(Datapackage pack) {
+        toBeDeleted = new ArrayList<>();
+        
+        // Nachricht an alle Sockets senden
+        for (String current : clients.keySet()) {
+            sendPackage(pack, current);
+        }
+        
+        // Alle Sockets, die fehlerhaft waren, im Anschluss loeschen
+        for (String current : toBeDeleted) {
+            onClientRemoved(current, clients.get(current));
+            clients.remove(current);
+        }
+        
+        toBeDeleted = null;
+        
+        return clients.size();
+    }
+
+    /**
      * Broadcasts a Datapackage to every single logged-in socket,<br>
      * one after another on the calling thread.<br>
      * Every erroneous (unreachable etc.) socket is being removed in the end
@@ -264,7 +327,7 @@ public abstract class Server {
      *          The content to deliver
      * @return The number of reachable the Datapackage has been delivered to
      */
-    public synchronized int broadcastMessage(String ID, Object... content) {
+    public synchronized int broadcastServerMessage(String ID, Object... content) {
         toBeDeleted = new ArrayList<>();
         
         // Nachricht an alle Sockets senden
