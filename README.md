@@ -16,7 +16,7 @@ import com.blogspot.debukkitsblog.Util.Server;
 public class MyServer extends Server {
 
 	public MyServer(int port) {
-		super(port, true, true);
+		super(port);
 	}
 
 	@Override
@@ -24,7 +24,7 @@ public class MyServer extends Server {
 		registerMethod("Ping", new Executable() {
 			@Override
 			public void run(Datapackage msg, Socket socket) {
-				sendMessage(new Datapackage("REPLY", "Pong"), socket);
+				sendMessage(socket, "REPLY", "Pong");
 			}
 		});
 	}
@@ -51,7 +51,9 @@ EXAMPLE: So if you register "Ping" and an Executable repsonding "Pong" to the cl
   registerMethod("Ping", new Executable() {
 			@Override
 			public void run(Datapackage msg, Socket socket) {
-				  sendMessage(new Datapackage("IdentifierForTheReplyPackage", "Pong"), socket);
+				  sendMessage(socket, "IdentifierForTheReplyPackage", "Pong");
+				  // or
+				  sendMessage(msg.clientid(), "IdentifierForTheReplyPackage", "Pong");
 			}
 	});
 ```
@@ -67,7 +69,7 @@ EXAMPLE for a server broadcasting a chat-message to all connected clients:
 			public void run(Datapackage msg, Socket socket) {
 			  	System.out.println("[Message] New chat message arrived, delivering to all the clients...");
 			  	broadcastMessage(msg); //The broadcast to all the receivers
-			  	sendMessage(new Datapackage("REPLY", String.valueOf(reveicerCount)), socket); //The reply (NECESSARY! unless you want the client to block while waiting for this package)
+			  	sendMessage(socket, "REPLY", String.valueOf(reveicerCount)); //The reply (NECESSARY! unless you want the client to block while waiting for this package)
 			  	close(socket); //Close the connection to the socket you got the Datapackage from
 			}
 	});
@@ -84,13 +86,13 @@ import com.blogspot.debukkitsblog.Util.Executable;
 
 public class MyClient extends Client {
 
-	public MyClient(String address, int port) {
-		super(address, port, 10000, false);
+	public MyClient(String id, String address, int port) {
+		super(id, address, port);
 
 		registerMethod("Message", new Executable() {
 			@Override
 			public void run(Datapackage msg, Socket socket) {
-				System.out.println("Look! I got a new message from the server: " + msg.get(1));
+				System.out.println("Look! I got a new message from the server: " + msg.get(0));
 			}
 		});
 
@@ -125,7 +127,7 @@ EXMAPLE for an incoming chat message from the server:
 		registerMethod("Message", new Executable() {
 			@Override
 			public void run(Datapackage msg, Socket socket) {
-				System.out.println("Look! I got a new message from the server: " + msg.get(1));				
+				System.out.println("Look! I got a new message from the server: " + msg.get(0));				
 			}
 		});
 ```
@@ -137,10 +139,14 @@ needs an extra-identifier-method registered for that.
 # Useful methods
 AS SERVER:
 
-  Broadcast messages using: broadcastMessage(Datapackage)
+  Broadcast messages using:
+	- broadcastMessage(Datapackage)
+	- broadcastMessage(String id, Objects...)
   
-  Send messages to a specified client using: sendMessage(Datapackage, Socket)
-  
+  Send messages to a specified client using:
+	- sendMessage(Socket, ID, Objects...)
+	- sendMessage(ClientID, ID, Objects...)
+	
   Receive messages from the client using registerMethod-Executables
   
 AS CLIENT:
