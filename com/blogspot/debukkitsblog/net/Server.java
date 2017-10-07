@@ -9,15 +9,16 @@ import java.net.Socket;
 import java.nio.channels.IllegalBlockingModeException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.UUID;
 
 import javax.net.ssl.SSLServerSocketFactory;
 
 /**
  * A very simple-to-use Server class for Java network applications<br>
- * originally created on 09.03.2016 in Horstmar, NRW, Germany
+ * originally created on March 9, 2016 in Horstmar, Germany
  * 
- * @author Leonard Bienbeck 
- * @version 2.1.0
+ * @author Leonard Bienbeck
+ * @version 2.2.0
  */
 public abstract class Server {
 
@@ -25,50 +26,47 @@ public abstract class Server {
 
 	private ServerSocket server;
 	private int port;
-	protected ArrayList<Socket> clients;
-	private ArrayList<Socket> toBeDeleted;
+	protected ArrayList<RemoteClient> clients;
+	private ArrayList<RemoteClient> toBeDeleted;
 
 	private Thread listeningThread;
 
 	private boolean autoRegisterEveryClient;
 	private boolean secureMode;
-	
+
 	private boolean muted;
-	
+	private long pingInterval = 30000;
+
 	/**
-	 * Executed the preStart()-Method,<br>
-	 * creates a Server on <i>port</i><br>
-	 * and starts the listening loop on its own thread.<br>
-	 * <br>
-	 * The servers stores every client connecting in a list<br>
-	 * to make them reachable using <i>broadcastMessage()</i> method.
-	 * The connecting to server will be kept alive by<br>
-	 * sending a little datapackage every 30 seconds.
-	 * The connecting will be encrypted using SSL (beta stage!)
+	 * Constructs a simple server listening on the given port. Every client that
+	 * connects to this server is registered and can receive broadcast and direct
+	 * messages, the connection will be kept alive using a ping and ssl will not be
+	 * used.
+	 * 
+	 * @param port
+	 *            The port to listen on
 	 */
 	public Server(int port) {
-		this(port, true, true, true);
+		this(port, true, true, false);
 	}
 
 	/**
-	 * Executed the preStart()-Method,<br>
-	 * creates a Server on <i>port</i><br>
-	 * and starts the listening loop on its own thread.
+	 * Constructs a simple server with all possible configurations
 	 * 
 	 * @param port
-	 *            the server shall work on
+	 *            The port to listen on
 	 * @param autoRegisterEveryClient
-	 *            whether every clients connecting<br>
-	 *            shall be registered or not
+	 *            Whether a client that connects should be registered to send it
+	 *            broadcast and direct messages later
 	 * @param keepConnectionAlive
-	 *            whether the server shall try everything to keep the<br>
-	 *            connection alive by sending a little datapackage every 30
-	 *            seconds
+	 *            Whether the connection should be kept alive using a ping package.
+	 *            The transmission interval can be set using
+	 *            <code>setPingInterval(int seconds)</code>.
 	 * @param useSSL
-	 *            whether SSL should be used to encrypt communication
+	 *            Whether SSL should be used to establish a secure connection
 	 */
 	public Server(int port, boolean autoRegisterEveryClient, boolean keepConnectionAlive, boolean useSSL) {
-		this.clients = new ArrayList<Socket>();
+		this.clients = new ArrayList<RemoteClient>();
 		this.port = port;
 		this.autoRegisterEveryClient = autoRegisterEveryClient;
 		this.muted = false;
@@ -88,57 +86,31 @@ public abstract class Server {
 			startPingThread();
 		}
 	}
-	
+
 	/**
-	 * Sets whether the server shall print information or not. Exception and
-	 * errors are always printed.
+	 * Mutes the console output of this instance, errors will still be printed
 	 * 
 	 * @param muted
-	 *            <b>true</b> for no debug output at all, <b>false</b> for all
-	 *            output. Default is false (and all output printed).
+	 *            true if there should be no console output, except error messages
 	 */
 	public void setMuted(boolean muted) {
 		this.muted = muted;
 	}
 
 	/**
-	 * Executed while constructing the Server instance,<br>
-	 * just before listening to data from the network starts.
-	 */
-	public abstract void preStart();
-
-	/**
-	 * Overwrite this method to react on a client registered (logged in)<br>
-	 * to the server. That happens always, when a Datapackage<br>
-	 * with identifier <i>_INTERNAL_LOGIN_</i> is received from a client.
-	 */
-	public void onClientRegistered() {
-		// Overwrite this method when extending this class
-	}
-
-	/**
-	 * Overwrite this method to react on a client registered (logged in)<br>
-	 * to the server. That happens always, when a Datapackage<br>
-	 * with identifier <i>_INTERNAL_LOGIN_</i> is received from a client.
-	 */
-	public void onClientRegistered(Datapackage msg, Socket socket) {
-		// Overwrite this method when extending this class
-	}
-
-	/**
-	 * Called whenever a bad or erroneous socket is removed<br>
-	 * from the ArrayList of registered sockets.
+	 * Sets the interval in which ping packages should be sent to keep the
+	 * connection alive. Default is 30 seconds.
 	 * 
-	 * @param socket
-	 *            The socket that has been removed from the list
+	 * @param seconds
+	 *            The interval in which ping packages should be sent
 	 */
-	public void onSocketRemoved(Socket socket) {
-		// Overwrite this method when extending this class
+	public void setPingInterval(int seconds) {
+		this.pingInterval = seconds * 1000;
 	}
 
 	/**
-	 * Starts a thread pinging every client every 30 seconds to keep the
-	 * connection alive.
+	 * Starts the thread sending a dummy package every <i>pingInterval</i> seconds.
+	 * Adjust the interval using <code>setPingInterval(int seconds)</code>.
 	 */
 	private void startPingThread() {
 		new Thread(new Runnable() {
@@ -147,7 +119,7 @@ public abstract class Server {
 
 				while (server != null) {
 					try {
-						Thread.sleep(30 * 1000);
+						Thread.sleep(pingInterval);
 					} catch (InterruptedException e) {
 					}
 					broadcastMessage(new Datapackage("_INTERNAL_PING_", "OK"));
@@ -158,8 +130,7 @@ public abstract class Server {
 	}
 
 	/**
-	 * Starts a thread listening for incoming connections and Datapackages by
-	 * registered and non-registered clients
+	 * Starts the listening thread waiting for messages from clients
 	 */
 	private void startListening() {
 		if (listeningThread == null && server != null) {
@@ -183,7 +154,6 @@ public abstract class Server {
 								if (!muted)
 									System.out.println("[Server] Message received: " + msg);
 
-								INNER_LOOP:
 								for (final String current : idMethods.keySet()) {
 									if (msg.id().equalsIgnoreCase(current)) {
 										if (!muted)
@@ -191,10 +161,17 @@ public abstract class Server {
 													"[Server] Executing method for identifier '" + msg.id() + "'");
 										new Thread(new Runnable() {
 											public void run() {
+												// Run the method registered for the ID of this Datapackage
 												idMethods.get(current).run(msg, tempSocket);
+												// and close the connection
+												try {
+													tempSocket.close();
+												} catch (IOException e) {
+													e.printStackTrace();
+												}
 											}
 										}).start();
-										break INNER_LOOP;
+										break;
 									}
 								}
 
@@ -220,70 +197,179 @@ public abstract class Server {
 	}
 
 	/**
-	 * Sends a Datapackage to a Socket
+	 * Sends a reply to client. This method should only be called from within the
+	 * run-Method of an <code>Executable</code> implementation.
 	 * 
-	 * @param message
-	 *            The Datapackage to be delivered
-	 * @param socket
-	 *            The Socket the Datapackage shall be delivered to
+	 * @param toSocket
+	 *            The socket the message should be delivered to
+	 * @param datapackageContent
+	 *            The content of the message to be delivered. The ID of this
+	 *            Datapackage will be "REPLY".
 	 */
-	public synchronized void sendMessage(Datapackage message, Socket socket) {
+	public synchronized void sendReply(Socket toSocket, Object... datapackageContent) {
+		sendMessage(new RemoteClient(UUID.randomUUID().toString(), toSocket),
+				new Datapackage("REPLY", datapackageContent));
+	}
+
+	/**
+	 * Sends a message to a client with specified id
+	 * 
+	 * @param remoteClientId
+	 *            The id of the client it registered on login
+	 * @param datapackageId
+	 *            The id of message
+	 * @param datapackageContent
+	 *            The content of the message
+	 */
+	public synchronized void sendMessage(String remoteClientId, String datapackageId, Object... datapackageContent) {
+		sendMessage(remoteClientId, new Datapackage(datapackageId, datapackageContent));
+	}
+
+	/**
+	 * Sends a message to a client with specified id
+	 * 
+	 * @param remoteClientId
+	 *            The id of the client it registered on login
+	 * @param message
+	 *            The message
+	 */
+	public synchronized void sendMessage(String remoteClientId, Datapackage message) {
+		for (RemoteClient current : clients) {
+			if (current.getId().equals(remoteClientId)) {
+				sendMessage(current, message);
+			}
+		}
+	}
+
+	/**
+	 * Sends a message to a client
+	 * 
+	 * @param remoteClient
+	 *            The target client
+	 * @param datapackageId
+	 *            The id of message
+	 * @param datapackageContent
+	 *            The content of the message
+	 */
+	public synchronized void sendMessage(RemoteClient remoteClient, String datapackageId,
+			Object... datapackageContent) {
+		sendMessage(remoteClient, new Datapackage(datapackageId, datapackageContent));
+	}
+
+	/**
+	 * Sends a message to a client
+	 * 
+	 * @param remoteClient
+	 *            The target client
+	 * @param message
+	 *            The message
+	 */
+	public synchronized void sendMessage(RemoteClient remoteClient, Datapackage message) {
 		try {
 			// Nachricht senden
-			if (!socket.isConnected()) {
+			if (!remoteClient.getSocket().isConnected()) {
 				throw new Exception("Socket not connected.");
 			}
-			ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+			ObjectOutputStream out = new ObjectOutputStream(remoteClient.getSocket().getOutputStream());
 			out.writeObject(message);
 		} catch (Exception e) {
 			System.err.println("[SendMessage] Fehler: " + e.getMessage());
 
 			// Bei Fehler: Socket aus Liste loeschen
 			if (toBeDeleted != null) {
-				toBeDeleted.add(socket);
+				toBeDeleted.add(remoteClient);
 			} else {
-				clients.remove(socket);
-				onSocketRemoved(socket);
+				clients.remove(remoteClient);
+				onClientRemoved(remoteClient);
 			}
 		}
 	}
 
 	/**
-	 * Broadcasts a Datapackage to every single logged-in socket,<br>
-	 * one after another on the calling thread.<br>
-	 * Every erroneous (unreachable etc.) socket is being removed in the end
+	 * Use <code>sendMessage(RemoteClient remoteClient, Datapackage message)</code>
+	 * instead. Only the order of the parameters has changed.
 	 * 
 	 * @param message
-	 *            The Datapackage to be broadcasted
-	 * @return The number of reachable the Datapackage has been delivered to
+	 *            The message
+	 * @param remoteClient
+	 *            The client
 	 */
-	public synchronized int broadcastMessage(Datapackage message) {
-		toBeDeleted = new ArrayList<Socket>();
+	@Deprecated
+	public synchronized void sendMessage(Datapackage message, RemoteClient remoteClient) {
+		sendMessage(remoteClient, message);
+	}
+
+	/**
+	 * Broadcasts a message to a group of clients
+	 * 
+	 * @param group
+	 *            The group name the clients registered on their login
+	 * @param message
+	 *            The message
+	 * @return The number of clients reached
+	 */
+	public synchronized int broadcastMessageToGroup(String group, Datapackage message) {
+		toBeDeleted = new ArrayList<RemoteClient>();
 
 		// Nachricht an alle Sockets senden
-		for (Socket current : clients) {
-			sendMessage(message, current);
+		int rxCounter = 0;
+		for (RemoteClient current : clients) {
+			if (current.getGroup().equals(group)) {
+				sendMessage(current, message);
+				rxCounter++;
+			}
 		}
 
 		// Alle Sockets, die fehlerhaft waren, im Anschluss loeschen
-		for (Socket current : toBeDeleted) {
+		rxCounter -= toBeDeleted.size();
+		for (RemoteClient current : toBeDeleted) {
 			clients.remove(current);
-			onSocketRemoved(current);
+			onClientRemoved(current);
 		}
 
 		toBeDeleted = null;
 
-		return clients.size();
+		return rxCounter;
 	}
 
 	/**
-	 * Registers an Executable to be executed by the server<br>
-	 * on an incoming Datapackage has <i>identifier</i> as its identifier.
+	 * Broadcasts a message to a group of clients
+	 * 
+	 * @param message
+	 *            The message
+	 * @return The number of clients reached
+	 */
+	public synchronized int broadcastMessage(Datapackage message) {
+		toBeDeleted = new ArrayList<RemoteClient>();
+
+		// Nachricht an alle Sockets senden
+		int rxCounter = 0;
+		for (RemoteClient current : clients) {
+			sendMessage(current, message);
+			rxCounter++;
+		}
+
+		// Alle Sockets, die fehlerhaft waren, im Anschluss loeschen
+		rxCounter -= toBeDeleted.size();
+		for (RemoteClient current : toBeDeleted) {
+			clients.remove(current);
+			onClientRemoved(current);
+		}
+
+		toBeDeleted = null;
+
+		return rxCounter;
+	}
+
+	/**
+	 * Registers a method that will be executed if a message containing
+	 * <i>identifier</i> is received
 	 * 
 	 * @param identifier
-	 *            The identifier the Executable is triggered by
+	 *            The ID of the message to proccess
 	 * @param executable
-	 *            The Executable to be executed on arriving identifier
+	 *            The method to be called when a message with <i>identifier</i> is
+	 *            received
 	 */
 	public void registerMethod(String identifier, Executable executable) {
 		if (identifier.equalsIgnoreCase("_INTERNAL_LOGIN_") && autoRegisterEveryClient) {
@@ -295,11 +381,21 @@ public abstract class Server {
 		}
 	}
 
+	/**
+	 * Registers a login handler. This method is called only if the constructor has
+	 * been applied to register clients.
+	 */
 	private void registerLoginMethod() {
 		idMethods.put("_INTERNAL_LOGIN_", new Executable() {
 			@Override
 			public void run(Datapackage msg, Socket socket) {
-				registerClient(socket);
+				if (msg.open().size() == 3) {
+					registerClient((String) msg.get(1), (String) msg.get(2), socket);
+				} else if (msg.open().size() == 2) {
+					registerClient((String) msg.get(1), socket);
+				} else {
+					registerClient(UUID.randomUUID().toString(), socket);
+				}
 				onClientRegistered(msg, socket);
 				onClientRegistered();
 			}
@@ -307,26 +403,45 @@ public abstract class Server {
 	}
 
 	/**
-	 * Registers a new client. From now on this Socket will receive broadcast
-	 * messages.
+	 * Registers a client to allow sending it direct and broadcast messages later
 	 * 
+	 * @param id
+	 *            The client's id
 	 * @param newClientSocket
-	 *            The Socket to be registerd
+	 *            The client's socket
 	 */
-	public synchronized void registerClient(Socket newClientSocket) {
-		clients.add(newClientSocket);
+	private synchronized void registerClient(String id, Socket newClientSocket) {
+		clients.add(new RemoteClient(id, newClientSocket));
 	}
 
+	/**
+	 * Registers a client to allow sending it direct and broadcast messages later
+	 * 
+	 * @param id
+	 *            The client's id
+	 * @param group
+	 *            The client's group name
+	 * @param newClientSocket
+	 *            The client's socket
+	 */
+	private synchronized void registerClient(String id, String group, Socket newClientSocket) {
+		clients.add(new RemoteClient(id, group, newClientSocket));
+	}
+
+	/**
+	 * Starts the server. This method is automatically called after
+	 * <code>preStart()</code> and starts the actual and the listening thread.
+	 */
 	private void start() {
 		server = null;
 		try {
-			
-			if(secureMode){
+
+			if (secureMode) {
 				server = ((SSLServerSocketFactory) SSLServerSocketFactory.getDefault()).createServerSocket(port);
-			} else {			
+			} else {
 				server = new ServerSocket(port);
 			}
-			
+
 		} catch (IOException e) {
 			System.err.println("Error opening ServerSocket");
 			e.printStackTrace();
@@ -335,7 +450,7 @@ public abstract class Server {
 	}
 
 	/**
-	 * Interrupts the listening thread and closes the server
+	 * Stops the server
 	 */
 	public void stop() {
 		if (listeningThread.isAlive()) {
@@ -352,10 +467,122 @@ public abstract class Server {
 	}
 
 	/**
-	 * @return The number of connected clients
+	 * Counts the number of clients registered
+	 * 
+	 * @return The number of clients registered
 	 */
 	public synchronized int getClientCount() {
 		return clients.size();
+	}
+
+	/**
+	 * Called just before the actual server starts. Register your handler methods in
+	 * here using
+	 * <code>registerMethod(String identifier, Executable executable)</code>!
+	 */
+	public abstract void preStart();
+
+	/**
+	 * Called on the listener's main thread when a new client registers
+	 */
+	public void onClientRegistered() {
+		// Overwrite this method when extending this class
+	}
+
+	/**
+	 * Called on the listener's main thread when a new client registers
+	 * 
+	 * @param msg
+	 *            The message the client registered with
+	 * @param socket
+	 *            The socket the client registered with. Be careful with this! You
+	 *            should not close this socket, because the server should have
+	 *            stored it normally to reach this client later.
+	 */
+	public void onClientRegistered(Datapackage msg, Socket socket) {
+		// Overwrite this method when extending this class
+	}
+
+	/**
+	 * Use <code>onClientRemoved(RemoteClient remoteClient)</code> instead. Only the
+	 * name of the method has changed.
+	 * 
+	 * @param socket
+	 *            The socket of the client that was removed from the list of
+	 *            reachable clients
+	 */
+	@Deprecated
+	public void onSocketRemoved(Socket socket) {
+		// Overwrite this method when extending this class
+	}
+
+	/**
+	 * Called on the listener's main thread when a client is removed from the list.
+	 * This normally happens if there was a problem with its connection. You should
+	 * wait for the client to connect again.
+	 * 
+	 * @param remoteClient
+	 *            The client that was removed from the list of reachable clients
+	 */
+	public void onClientRemoved(RemoteClient remoteClient) {
+		// Overwrite this method when extending this class
+	}
+
+	/**
+	 * A RemoteClient representating a client connected to this server storing an id
+	 * for identification and a socket for communication.
+	 */
+	private class RemoteClient {
+		private String id;
+		private String group;
+		private Socket socket;
+
+		/**
+		 * Creates a RemoteClient representating a client connected to this server
+		 * storing an id for identification and a socket for communication. The client
+		 * will be member of the default group.
+		 * 
+		 * @param id
+		 *            The clients id (to use for identification; choose a custom String)
+		 * @param socket
+		 *            The socket (to use for communication)
+		 */
+		public RemoteClient(String id, Socket socket) {
+			this.id = id;
+			this.group = "_DEFAULT_GROUP_";
+			this.socket = socket;
+		}
+
+		/**
+		 * Creates a RemoteClient representating a client connected to this server
+		 * storing an id for identification and a socket for communication. The client
+		 * can be set as a member of a group of clients to receive messages broadcasted
+		 * to a group.
+		 * 
+		 * @param id
+		 *            The clients id (to use for identification; choose a custom String)
+		 * @param group
+		 *            The group the client is member of
+		 * @param socket
+		 *            The socket (to use for communication)
+		 */
+		public RemoteClient(String id, String group, Socket socket) {
+			this.id = id;
+			this.group = group;
+			this.socket = socket;
+		}
+
+		public String getId() {
+			return id;
+		}
+
+		public String getGroup() {
+			return group;
+		}
+
+		public Socket getSocket() {
+			return socket;
+		}
 	}
 
 }

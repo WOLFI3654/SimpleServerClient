@@ -2,14 +2,28 @@ package com.blogspot.debukkitsblog.net;
 
 import java.net.Socket;
 
+/**
+ * A functional interface implemented by <code>Client</code> and
+ * <code>Server</code> for handling incoming Datapackages with specified
+ * identifiers.
+ * 
+ * @author Leonard Bienbeck
+ * @version 1.0.0
+ */
 public interface Executable {
-	
+
 	/**
-	 * Put the lines to be executed inside the run.<br>
-	 * This method is called by the Client or Server if the identifier<br>
-	 * of an Datapackage fits to the identifier this Executable is registered with.
-	 * @param pack the Datapackage to work with
-	 * @param socket the Socket to work with
+	 * Implement this method using
+	 * <code>registerMethod(String identifier, Executable executable)</code> of a
+	 * <code>Server</code> or <code>Client</code> to handle incoming Datapackages.
+	 * <b>Server only</b>: If you send a reply to a client from an implementation of
+	 * this method, use
+	 * <code>sendReply(Socket toSocket, Object... datapackageContent)</code>.
+	 * 
+	 * @param pack
+	 *            The Datapackage received
+	 * @param socket
+	 *            The Socket you received the Datapackage from
 	 */
 	public abstract void run(Datapackage pack, Socket socket);
 
