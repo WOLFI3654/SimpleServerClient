@@ -18,7 +18,7 @@ import javax.net.ssl.SSLServerSocketFactory;
  * originally created on March 9, 2016 in Horstmar, Germany
  * 
  * @author Leonard Bienbeck
- * @version 2.2.0
+ * @version 2.3.0
  */
 public abstract class Server {
 
@@ -389,9 +389,9 @@ public abstract class Server {
 		idMethods.put("_INTERNAL_LOGIN_", new Executable() {
 			@Override
 			public void run(Datapackage msg, Socket socket) {
-				if (msg.open().size() == 3) {
+				if (msg.size() == 3) {
 					registerClient((String) msg.get(1), (String) msg.get(2), socket);
-				} else if (msg.open().size() == 2) {
+				} else if (msg.size() == 2) {
 					registerClient((String) msg.get(1), socket);
 				} else {
 					registerClient(UUID.randomUUID().toString(), socket);
