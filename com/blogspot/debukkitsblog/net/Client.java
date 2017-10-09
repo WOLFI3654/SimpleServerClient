@@ -16,7 +16,7 @@ import javax.net.ssl.SSLSocketFactory;
  * originally created on March 9, 2016 in Horstmar, Germany
  * 
  * @author Leonard Bienbeck
- * @version 2.3.0
+ * @version 2.3.2
  */
 public class Client {
 
@@ -144,8 +144,9 @@ public class Client {
 	 * Called to repair the connection if it is lost
 	 */
 	private void repairConnection() {
-		if (!muted)
+		if (!muted) {
 			System.out.println("[Client-Connection-Repair] Repairing connection...");
+		}
 		if (loginSocket != null) {
 			try {
 				loginSocket.close();
@@ -165,8 +166,9 @@ public class Client {
 	private void login() {
 		// Verbindung herstellen
 		try {
-			if (!muted)
+			if (!muted) {
 				System.out.println("[Client] Connecting" + (secureMode ? " using SSL..." : "..."));
+			}
 			if (loginSocket != null && loginSocket.isConnected()) {
 				throw new AlreadyConnectedException();
 			}
@@ -179,8 +181,9 @@ public class Client {
 				loginSocket.connect(this.address, this.timeout);
 			}
 
-			if (!muted)
+			if (!muted) {
 				System.out.println("[Client] Connected to " + loginSocket.getRemoteSocketAddress());
+			}
 		} catch (IOException ex) {
 			ex.printStackTrace();
 			onConnectionProblem();
@@ -188,12 +191,14 @@ public class Client {
 
 		// Einloggen
 		try {
-			if (!muted)
+			if (!muted) {
 				System.out.println("[Client] Logging in...");
+			}
 			ObjectOutputStream out = new ObjectOutputStream(loginSocket.getOutputStream());
 			out.writeObject(new Datapackage("_INTERNAL_LOGIN_", id, group));
-			if (!muted)
+			if (!muted) {
 				System.out.println("[Client] Logged in.");
+			}
 			onReconnect();
 		} catch (IOException ex) {
 			System.err.println("[Client] Login failed.");
@@ -244,9 +249,9 @@ public class Client {
 
 							for (final String current : idMethods.keySet()) {
 								if (msg.id().equalsIgnoreCase(current)) {
-									if (!muted)
-										System.out.println("[Client] Message received. Executing method for '"
-												+ msg.id() + "'...");
+									if (!muted) {
+										System.out.println("[Client] Message received. Executing method for '" + msg.id() + "'...");
+									}
 									new Thread(new Runnable() {
 										public void run() {
 											idMethods.get(current).run(msg, loginSocket);

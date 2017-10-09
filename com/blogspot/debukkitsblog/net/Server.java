@@ -18,7 +18,7 @@ import javax.net.ssl.SSLServerSocketFactory;
  * originally created on March 9, 2016 in Horstmar, Germany
  * 
  * @author Leonard Bienbeck
- * @version 2.3.0
+ * @version 2.3.2
  */
 public abstract class Server {
 
@@ -36,6 +36,8 @@ public abstract class Server {
 
 	private boolean muted;
 	private long pingInterval = 30000;
+	
+	private static final String INTERNAL_LOGIN_ID = "_INTERNAL_LOGIN_";
 
 	/**
 	 * Constructs a simple server listening on the given port. Every client that
@@ -141,9 +143,9 @@ public abstract class Server {
 					while (server != null) {
 
 						try {
-							if (!muted)
-								System.out.println(
-										"[Server] Waiting for connection" + (secureMode ? " using SSL..." : "..."));
+							if (!muted) {
+								System.out.println("[Server] Waiting for connection" + (secureMode ? " using SSL..." : "..."));
+							}
 							final Socket tempSocket = server.accept();
 
 							ObjectInputStream ois = new ObjectInputStream(tempSocket.getInputStream());
@@ -151,18 +153,23 @@ public abstract class Server {
 
 							if (raw instanceof Datapackage) {
 								final Datapackage msg = (Datapackage) raw;
-								if (!muted)
+								if (!muted) {
 									System.out.println("[Server] Message received: " + msg);
+								}
 
 								for (final String current : idMethods.keySet()) {
 									if (msg.id().equalsIgnoreCase(current)) {
-										if (!muted)
-											System.out.println(
-													"[Server] Executing method for identifier '" + msg.id() + "'");
+										if (!muted) {
+											System.out.println("[Server] Executing method for identifier '" + msg.id() + "'");
+										}
 										new Thread(new Runnable() {
 											public void run() {
 												// Run the method registered for the ID of this Datapackage
 												idMethods.get(current).run(msg, tempSocket);
+												// and close the temporary socket if it is not longer needed
+												if(!msg.id().equals(INTERNAL_LOGIN_ID)) {
+													try { tempSocket.close(); } catch (Exception e) { e.printStackTrace(); }
+												}
 											}
 										}).start();
 										break;
@@ -366,8 +373,8 @@ public abstract class Server {
 	 *            received
 	 */
 	public void registerMethod(String identifier, Executable executable) {
-		if (identifier.equalsIgnoreCase("_INTERNAL_LOGIN_") && autoRegisterEveryClient) {
-			throw new IllegalArgumentException("Identifier may not be '_INTERNAL_LOGIN_'. "
+		if (identifier.equalsIgnoreCase(INTERNAL_LOGIN_ID) && autoRegisterEveryClient) {
+			throw new IllegalArgumentException("Identifier may not be '" + INTERNAL_LOGIN_ID + "'. "
 					+ "Since v1.0.1 the server automatically registers new clients. "
 					+ "To react on new client registed, use the onClientRegisters() Listener by overwriting it.");
 		} else {
@@ -380,7 +387,7 @@ public abstract class Server {
 	 * been applied to register clients.
 	 */
 	private void registerLoginMethod() {
-		idMethods.put("_INTERNAL_LOGIN_", new Executable() {
+		idMethods.put(INTERNAL_LOGIN_ID, new Executable() {
 			@Override
 			public void run(Datapackage msg, Socket socket) {
 				if (msg.size() == 3) {
