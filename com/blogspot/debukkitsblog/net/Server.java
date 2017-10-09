@@ -163,12 +163,6 @@ public abstract class Server {
 											public void run() {
 												// Run the method registered for the ID of this Datapackage
 												idMethods.get(current).run(msg, tempSocket);
-												// and close the connection
-												try {
-													tempSocket.close();
-												} catch (IOException e) {
-													e.printStackTrace();
-												}
 											}
 										}).start();
 										break;
