@@ -16,7 +16,7 @@ import javax.net.ssl.SSLSocketFactory;
  * originally created on March 9, 2016 in Horstmar, Germany
  * 
  * @author Leonard Bienbeck
- * @version 2.3.2
+ * @version 2.3.3
  */
 public class Client {
 
@@ -121,10 +121,13 @@ public class Client {
 	}
 
 	/**
-	 * Mutes the console output of this instance, errors will still be printed
+	 * Mutes the console output of this instance, stack traces will still be
+	 * printed.<br>
+	 * <b>Be careful:</b> This will not prevent processing of messages passed to the
+	 * onLog and onLogError methods, if they were overwritten.
 	 * 
 	 * @param muted
-	 *            true if there should be no console output, except error messages
+	 *            true if there should be no console output
 	 */
 	public void setMuted(boolean muted) {
 		this.muted = muted;
@@ -144,9 +147,7 @@ public class Client {
 	 * Called to repair the connection if it is lost
 	 */
 	private void repairConnection() {
-		if (!muted) {
-			System.out.println("[Client-Connection-Repair] Repairing connection...");
-		}
+		onLog("[Client-Connection-Repair] Repairing connection...");
 		if (loginSocket != null) {
 			try {
 				loginSocket.close();
@@ -166,9 +167,7 @@ public class Client {
 	private void login() {
 		// Verbindung herstellen
 		try {
-			if (!muted) {
-				System.out.println("[Client] Connecting" + (secureMode ? " using SSL..." : "..."));
-			}
+			onLog("[Client] Connecting" + (secureMode ? " using SSL..." : "..."));
 			if (loginSocket != null && loginSocket.isConnected()) {
 				throw new AlreadyConnectedException();
 			}
@@ -181,9 +180,7 @@ public class Client {
 				loginSocket.connect(this.address, this.timeout);
 			}
 
-			if (!muted) {
-				System.out.println("[Client] Connected to " + loginSocket.getRemoteSocketAddress());
-			}
+			onLog("[Client] Connected to " + loginSocket.getRemoteSocketAddress());
 		} catch (IOException ex) {
 			ex.printStackTrace();
 			onConnectionProblem();
@@ -191,17 +188,13 @@ public class Client {
 
 		// Einloggen
 		try {
-			if (!muted) {
-				System.out.println("[Client] Logging in...");
-			}
+			onLog("[Client] Logging in...");
 			ObjectOutputStream out = new ObjectOutputStream(loginSocket.getOutputStream());
 			out.writeObject(new Datapackage("_INTERNAL_LOGIN_", id, group));
-			if (!muted) {
-				System.out.println("[Client] Logged in.");
-			}
+			onLog("[Client] Logged in.");
 			onReconnect();
 		} catch (IOException ex) {
-			System.err.println("[Client] Login failed.");
+			onLogError("[Client] Login failed.");
 		}
 	}
 
@@ -249,9 +242,7 @@ public class Client {
 
 							for (final String current : idMethods.keySet()) {
 								if (msg.id().equalsIgnoreCase(current)) {
-									if (!muted) {
-										System.out.println("[Client] Message received. Executing method for '" + msg.id() + "'...");
-									}
+									onLog("[Client] Message received. Executing method for '" + msg.id() + "'...");
 									new Thread(new Runnable() {
 										public void run() {
 											idMethods.get(current).run(msg, loginSocket);
@@ -266,9 +257,9 @@ public class Client {
 					} catch (Exception ex) {
 						ex.printStackTrace();
 						onConnectionProblem();
-						System.err.println("Server offline?");
+						onLogError("Server offline?");
 						if ((++errorCount > 30) && autoKill) {
-							System.err.println("Server dauerhaft nicht erreichbar, beende.");
+							onLogError("Server dauerhaft nicht erreichbar, beende.");
 							System.exit(0);
 						} else {
 							repairConnection();
@@ -323,7 +314,7 @@ public class Client {
 				return (Datapackage) raw;
 			}
 		} catch (Exception ex) {
-			System.err.println("[Client] Error while sending message:");
+			onLogError("[Client] Error while sending message:");
 			ex.printStackTrace();
 		}
 
@@ -397,6 +388,36 @@ public class Client {
 	 */
 	public void onReconnect() {
 		// Overwrite this method when extending this class
+	}
+	
+	/**
+	 * By default, this method is called whenever an output is to be made. If this
+	 * method is not overwritten, the output is passed to the system's default
+	 * output stream (if output is not muted).<br>
+	 * Error messages are passed to the <code>onLogError</code> event listener.<br>
+	 * <b>Override this method to catch and process the message in a custom way.</b>
+	 * 
+	 * @param message
+	 *            The content of the output to be made
+	 */
+	public void onLog(String message) {
+		if (!muted)
+			System.out.println(message);
+	}
+
+	/**
+	 * By default, this method is called whenever an error output is to be made. If
+	 * this method is not overwritten, the output is passed to the system's default
+	 * error output stream (if output is not muted).<br>
+	 * Non-error messages are passed to the <code>onLog</code> event listener.<br>
+	 * <b>Override this method to catch and process the message in a custom way.</b>
+	 * 
+	 * @param message
+	 *            The content of the error output to be made
+	 */
+	public void onLogError(String message) {
+		if (!muted)
+			System.err.println(message);
 	}
 
 }

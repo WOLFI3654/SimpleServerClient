@@ -18,7 +18,7 @@ import javax.net.ssl.SSLServerSocketFactory;
  * originally created on March 9, 2016 in Horstmar, Germany
  * 
  * @author Leonard Bienbeck
- * @version 2.3.2
+ * @version 2.3.3
  */
 public abstract class Server {
 
@@ -36,7 +36,7 @@ public abstract class Server {
 
 	private boolean muted;
 	private long pingInterval = 30000;
-	
+
 	private static final String INTERNAL_LOGIN_ID = "_INTERNAL_LOGIN_";
 
 	/**
@@ -90,10 +90,13 @@ public abstract class Server {
 	}
 
 	/**
-	 * Mutes the console output of this instance, errors will still be printed
+	 * Mutes the console output of this instance, stack traces will still be
+	 * printed.<br>
+	 * <b>Be careful:</b> This will not prevent processing of messages passed to the
+	 * onLog and onLogError methods, if they were overwritten.
 	 * 
 	 * @param muted
-	 *            true if there should be no console output, except error messages
+	 *            true if there should be no console output
 	 */
 	public void setMuted(boolean muted) {
 		this.muted = muted;
@@ -143,9 +146,7 @@ public abstract class Server {
 					while (server != null) {
 
 						try {
-							if (!muted) {
-								System.out.println("[Server] Waiting for connection" + (secureMode ? " using SSL..." : "..."));
-							}
+							onLog("[Server] Waiting for connection" + (secureMode ? " using SSL..." : "..."));
 							final Socket tempSocket = server.accept();
 
 							ObjectInputStream ois = new ObjectInputStream(tempSocket.getInputStream());
@@ -153,22 +154,22 @@ public abstract class Server {
 
 							if (raw instanceof Datapackage) {
 								final Datapackage msg = (Datapackage) raw;
-								if (!muted) {
-									System.out.println("[Server] Message received: " + msg);
-								}
+								onLog("[Server] Message received: " + msg);
 
 								for (final String current : idMethods.keySet()) {
 									if (msg.id().equalsIgnoreCase(current)) {
-										if (!muted) {
-											System.out.println("[Server] Executing method for identifier '" + msg.id() + "'");
-										}
+										onLog("[Server] Executing method for identifier '" + msg.id() + "'");
 										new Thread(new Runnable() {
 											public void run() {
 												// Run the method registered for the ID of this Datapackage
 												idMethods.get(current).run(msg, tempSocket);
 												// and close the temporary socket if it is not longer needed
-												if(!msg.id().equals(INTERNAL_LOGIN_ID)) {
-													try { tempSocket.close(); } catch (Exception e) { e.printStackTrace(); }
+												if (!msg.id().equals(INTERNAL_LOGIN_ID)) {
+													try {
+														tempSocket.close();
+													} catch (Exception e) {
+														e.printStackTrace();
+													}
 												}
 											}
 										}).start();
@@ -274,7 +275,7 @@ public abstract class Server {
 			ObjectOutputStream out = new ObjectOutputStream(remoteClient.getSocket().getOutputStream());
 			out.writeObject(message);
 		} catch (Exception e) {
-			System.err.println("[SendMessage] Fehler: " + e.getMessage());
+			onLogError("[SendMessage] Fehler: " + e.getMessage());
 
 			// Bei Fehler: Socket aus Liste loeschen
 			if (toBeDeleted != null) {
@@ -444,7 +445,7 @@ public abstract class Server {
 			}
 
 		} catch (IOException e) {
-			System.err.println("Error opening ServerSocket");
+			onLogError("Error opening ServerSocket");
 			e.printStackTrace();
 		}
 		startListening();
@@ -527,6 +528,36 @@ public abstract class Server {
 	 */
 	public void onClientRemoved(RemoteClient remoteClient) {
 		// Overwrite this method when extending this class
+	}
+
+	/**
+	 * By default, this method is called whenever an output is to be made. If this
+	 * method is not overwritten, the output is passed to the system's default
+	 * output stream (if output is not muted).<br>
+	 * Error messages are passed to the <code>onLogError</code> event listener.<br>
+	 * <b>Override this method to catch and process the message in a custom way.</b>
+	 * 
+	 * @param message
+	 *            The content of the output to be made
+	 */
+	public void onLog(String message) {
+		if (!muted)
+			System.out.println(message);
+	}
+
+	/**
+	 * By default, this method is called whenever an error output is to be made. If
+	 * this method is not overwritten, the output is passed to the system's default
+	 * error output stream (if output is not muted).<br>
+	 * Non-error messages are passed to the <code>onLog</code> event listener.<br>
+	 * <b>Override this method to catch and process the message in a custom way.</b>
+	 * 
+	 * @param message
+	 *            The content of the error output to be made
+	 */
+	public void onLogError(String message) {
+		if (!muted)
+			System.err.println(message);
 	}
 
 	/**
