@@ -16,7 +16,7 @@ import javax.net.ssl.SSLSocketFactory;
  * originally created on March 9, 2016 in Horstmar, Germany
  * 
  * @author Leonard Bienbeck
- * @version 2.3.3
+ * @version 2.3.4
  */
 public class Client {
 
@@ -190,7 +190,9 @@ public class Client {
 		try {
 			onLog("[Client] Logging in...");
 			ObjectOutputStream out = new ObjectOutputStream(loginSocket.getOutputStream());
-			out.writeObject(new Datapackage("_INTERNAL_LOGIN_", id, group));
+			Datapackage loginPackage = new Datapackage("_INTERNAL_LOGIN_", id, group);
+			loginPackage.sign(id, group);
+			out.writeObject(loginPackage);
 			onLog("[Client] Logged in.");
 			onReconnect();
 		} catch (IOException ex) {
@@ -301,6 +303,7 @@ public class Client {
 			}
 
 			ObjectOutputStream tempOOS = new ObjectOutputStream(tempSocket.getOutputStream());
+			message.sign(id, group);
 			tempOOS.writeObject(message);
 
 			ObjectInputStream tempOIS = new ObjectInputStream(tempSocket.getInputStream());
