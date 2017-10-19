@@ -29,8 +29,6 @@ public class MyServer extends Server {
 }
 ```
 
-
-
 Just make your own class, e. g. MyServer extending Server, simply use the original constructor and implement
 the preStart() method. In the preStart method just add
 ```java
@@ -126,25 +124,18 @@ needs an extra-identifier-method registered for that.
 
 # Useful methods
 AS SERVER:
-
-  Broadcast messages using:
-	- broadcastMessage(...)
-
-  Use IDs and group names to register your clients to the server. This allows you to decide what clients or groups of clients may receive a particular broadcast.
-  
-  Send messages to a specified client using:
-	- sendMessage(...)
-	
-  Receive messages from the client using registerMethod-Executables
+ - Broadcast messages using: broadcastMessage(...)
+ - Use IDs and group names to register your clients to the server. This allows you to decide what clients or groups of clients may receive a particular broadcast.
+ - Send messages to a specified client using: sendMessage(...)
+ - Receive messages from the client using registerMethod-Executables
   
 AS CLIENT:
-
-  Send messages to the server using: sendMessage(...)
-  
-  Receive replys to this message using its return value (that will be reply Datapackage)
-  
-  Receive messages from the server using registerMethod-Executables at any time
-
+ - Send messages to the server using: sendMessage(...)
+ - Receive replys to this message using its return value (that will be reply Datapackage)
+ - Receive messages from the server using registerMethod-Executables at any time
 
 # Event handlers
 There a some event handlers (e.g. onConnectionGood(), onConnectionProblem(), onClientRegistered(...), etc.) you can overwrite to handle these events.
+
+# Custom message processing
+The client and server classes both provide the onLog and onLogError event handlers, which can be overridden in the implementation if the info messages and error messages should not (only) be output in the console.
