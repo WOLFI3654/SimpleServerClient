@@ -216,7 +216,7 @@ public class Client {
 			@Override
 			public void run() {
 
-				// Ständig wiederholen:
+				// Staendig wiederholen
 				while (true) {
 					try {
 						// Bei fehlerhafter Verbindung, diese reparieren
