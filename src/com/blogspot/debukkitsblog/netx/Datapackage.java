@@ -1,4 +1,4 @@
-package com.blogspot.debukkitsblog.net;
+package com.blogspot.debukkitsblog.netx;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -11,11 +11,11 @@ import java.util.ArrayList;
  * @version 2.3.4
  */
 public class Datapackage extends ArrayList<Object> implements Serializable {
-
+	
 	/**
 	 * 
 	 */
-	private static final long serialVersionUID = -6938942692437968120L;
+	private static final long serialVersionUID = -7460712316335628957L;
 	
 	private String senderID = "UNSIGNED";
 	private String senderGroupName = "UNSIGNED";
