@@ -16,25 +16,25 @@ import javax.net.ssl.SSLSocketFactory;
  * originally created on March 9, 2016 in Horstmar, Germany
  * 
  * @author Leonard Bienbeck
- * @version 2.3.4
+ * @version 2.3.5
  */
 public class Client {
 
-	private String id;
-	private String group;
+	protected String id;
+	protected String group;
 
-	private Socket loginSocket;
-	private InetSocketAddress address;
-	private int timeout;
+	protected Socket loginSocket;
+	protected InetSocketAddress address;
+	protected int timeout;
 
-	private Thread listeningThread;
-	private HashMap<String, Executable> idMethods = new HashMap<String, Executable>();
+	protected Thread listeningThread;
+	protected HashMap<String, Executable> idMethods = new HashMap<String, Executable>();
 
-	private int errorCount;
+	protected int errorCount;
 
-	private boolean autoKill;
-	private boolean secureMode;
-	private boolean muted;
+	protected boolean autoKill;
+	protected boolean secureMode;
+	protected boolean muted;
 
 	/**
 	 * Constructs a simple client with just a hostname and port to connect to
@@ -121,6 +121,47 @@ public class Client {
 	}
 
 	/**
+	 * Checks whether the client is connected to the server and waiting for incoming
+	 * messages.
+	 * 
+	 * @return true, if the client is connected to the server and waiting for
+	 *         incoming messages
+	 */
+	public boolean isListening() {
+		return isConnected() && listeningThread != null && listeningThread.isAlive() && errorCount == 0;
+	}
+
+	/**
+	 * Checks whether the persistent connection to the server listening for incoming
+	 * messages is connected. This does not check whether the client actually waits
+	 * for incoming messages with the help of the <i>listening thread</i>, but only
+	 * the pure connection to the server.
+	 * 
+	 * @return true, if connected
+	 */
+	public boolean isConnected() {
+		return loginSocket != null && loginSocket.isConnected();
+	}
+
+	/**
+	 * Checks the connectivity to the server
+	 * 
+	 * @return true, if the server can be reached at all using the given address
+	 *         data
+	 */
+	public boolean isServerReachable() {
+		try {
+			Socket tempSocket = new Socket();
+			tempSocket.connect(this.address);
+			tempSocket.isConnected();
+			tempSocket.close();
+			return true;
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+	/**
 	 * Mutes the console output of this instance, stack traces will still be
 	 * printed.<br>
 	 * <b>Be careful:</b> This will not prevent processing of messages passed to the
@@ -146,7 +187,7 @@ public class Client {
 	/**
 	 * Called to repair the connection if it is lost
 	 */
-	private void repairConnection() {
+	protected void repairConnection() {
 		onLog("[Client-Connection-Repair] Repairing connection...");
 		if (loginSocket != null) {
 			try {
@@ -164,7 +205,7 @@ public class Client {
 	 * Logs in to the server to receive messages and broadcasts from the server
 	 * later
 	 */
-	private void login() {
+	protected void login() {
 		// Verbindung herstellen
 		try {
 			onLog("[Client] Connecting" + (secureMode ? " using SSL..." : "..."));
@@ -205,7 +246,7 @@ public class Client {
 	 * only be processed if a handler for its identifier has been registered before
 	 * using <code>registerMethod(String identifier, Executable executable)</code>
 	 */
-	private void startListening() {
+	protected void startListening() {
 
 		// Wenn der ListeningThread lebt, nicht neu starten!
 		if (listeningThread != null && listeningThread.isAlive()) {
@@ -392,7 +433,7 @@ public class Client {
 	public void onReconnect() {
 		// Overwrite this method when extending this class
 	}
-	
+
 	/**
 	 * By default, this method is called whenever an output is to be made. If this
 	 * method is not overwritten, the output is passed to the system's default

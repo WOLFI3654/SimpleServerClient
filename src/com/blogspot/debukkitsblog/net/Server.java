@@ -22,22 +22,22 @@ import javax.net.ssl.SSLServerSocketFactory;
  */
 public abstract class Server {
 
-	private HashMap<String, Executable> idMethods = new HashMap<String, Executable>();
+	protected HashMap<String, Executable> idMethods = new HashMap<String, Executable>();
 
-	private ServerSocket server;
-	private int port;
+	protected ServerSocket server;
+	protected int port;
 	protected ArrayList<RemoteClient> clients;
-	private ArrayList<RemoteClient> toBeDeleted;
+	protected ArrayList<RemoteClient> toBeDeleted;
 
-	private Thread listeningThread;
+	protected Thread listeningThread;
 
-	private boolean autoRegisterEveryClient;
-	private boolean secureMode;
+	protected boolean autoRegisterEveryClient;
+	protected boolean secureMode;
 
-	private boolean muted;
-	private long pingInterval = 30000;
+	protected boolean muted;
+	protected long pingInterval = 30000;
 
-	private static final String INTERNAL_LOGIN_ID = "_INTERNAL_LOGIN_";
+	protected static final String INTERNAL_LOGIN_ID = "_INTERNAL_LOGIN_";
 
 	/**
 	 * Constructs a simple server listening on the given port. Every client that
@@ -117,7 +117,7 @@ public abstract class Server {
 	 * Starts the thread sending a dummy package every <i>pingInterval</i> seconds.
 	 * Adjust the interval using <code>setPingInterval(int seconds)</code>.
 	 */
-	private void startPingThread() {
+	protected void startPingThread() {
 		new Thread(new Runnable() {
 			@Override
 			public void run() {
@@ -137,7 +137,7 @@ public abstract class Server {
 	/**
 	 * Starts the listening thread waiting for messages from clients
 	 */
-	private void startListening() {
+	protected void startListening() {
 		if (listeningThread == null && server != null) {
 			listeningThread = new Thread(new Runnable() {
 
@@ -387,7 +387,7 @@ public abstract class Server {
 	 * Registers a login handler. This method is called only if the constructor has
 	 * been applied to register clients.
 	 */
-	private void registerLoginMethod() {
+	protected void registerLoginMethod() {
 		idMethods.put(INTERNAL_LOGIN_ID, new Executable() {
 			@Override
 			public void run(Datapackage msg, Socket socket) {
@@ -412,7 +412,7 @@ public abstract class Server {
 	 * @param newClientSocket
 	 *            The client's socket
 	 */
-	private synchronized void registerClient(String id, Socket newClientSocket) {
+	protected synchronized void registerClient(String id, Socket newClientSocket) {
 		clients.add(new RemoteClient(id, newClientSocket));
 	}
 
@@ -426,7 +426,7 @@ public abstract class Server {
 	 * @param newClientSocket
 	 *            The client's socket
 	 */
-	private synchronized void registerClient(String id, String group, Socket newClientSocket) {
+	protected synchronized void registerClient(String id, String group, Socket newClientSocket) {
 		clients.add(new RemoteClient(id, group, newClientSocket));
 	}
 
@@ -434,7 +434,7 @@ public abstract class Server {
 	 * Starts the server. This method is automatically called after
 	 * <code>preStart()</code> and starts the actual and the listening thread.
 	 */
-	private void start() {
+	protected void start() {
 		server = null;
 		try {
 
