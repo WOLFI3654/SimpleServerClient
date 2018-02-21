@@ -564,7 +564,7 @@ public abstract class Server {
 	 * A RemoteClient representating a client connected to this server storing an id
 	 * for identification and a socket for communication.
 	 */
-	private class RemoteClient {
+	protected class RemoteClient {
 		private String id;
 		private String group;
 		private Socket socket;
