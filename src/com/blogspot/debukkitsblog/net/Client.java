@@ -1,5 +1,7 @@
 package com.blogspot.debukkitsblog.net;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -230,10 +232,11 @@ public class Client {
 		// Einloggen
 		try {
 			onLog("[Client] Logging in...");
-			ObjectOutputStream out = new ObjectOutputStream(loginSocket.getOutputStream());
+			ObjectOutputStream out = new ObjectOutputStream(new BufferedOutputStream(loginSocket.getOutputStream()));
 			Datapackage loginPackage = new Datapackage("_INTERNAL_LOGIN_", id, group);
 			loginPackage.sign(id, group);
 			out.writeObject(loginPackage);
+			out.flush();
 			onLog("[Client] Logged in.");
 			onReconnect();
 		} catch (IOException ex) {
@@ -276,7 +279,7 @@ public class Client {
 						onConnectionGood();
 
 						// Auf eingehende Nachricht warten und diese bei Eintreffen lesen
-						ObjectInputStream ois = new ObjectInputStream(loginSocket.getInputStream());
+						ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(loginSocket.getInputStream()));
 						Object raw = ois.readObject();
 
 						// Nachricht auswerten
@@ -343,11 +346,12 @@ public class Client {
 				tempSocket.connect(address, timeout);
 			}
 
-			ObjectOutputStream tempOOS = new ObjectOutputStream(tempSocket.getOutputStream());
+			ObjectOutputStream tempOOS = new ObjectOutputStream(new BufferedOutputStream(tempSocket.getOutputStream()));
 			message.sign(id, group);
 			tempOOS.writeObject(message);
+			tempOOS.flush();
 
-			ObjectInputStream tempOIS = new ObjectInputStream(tempSocket.getInputStream());
+			ObjectInputStream tempOIS = new ObjectInputStream(new BufferedInputStream(tempSocket.getInputStream()));
 			Object raw = tempOIS.readObject();
 
 			tempOOS.close();

@@ -1,5 +1,7 @@
 package com.blogspot.debukkitsblog.net;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -149,7 +151,7 @@ public abstract class Server {
 							onLog("[Server] Waiting for connection" + (secureMode ? " using SSL..." : "..."));
 							final Socket tempSocket = server.accept();
 
-							ObjectInputStream ois = new ObjectInputStream(tempSocket.getInputStream());
+							ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(tempSocket.getInputStream()));
 							Object raw = ois.readObject();
 
 							if (raw instanceof Datapackage) {
@@ -272,8 +274,9 @@ public abstract class Server {
 			if (!remoteClient.getSocket().isConnected()) {
 				throw new Exception("Socket not connected.");
 			}
-			ObjectOutputStream out = new ObjectOutputStream(remoteClient.getSocket().getOutputStream());
+			ObjectOutputStream out = new ObjectOutputStream(new BufferedOutputStream(remoteClient.getSocket().getOutputStream()));
 			out.writeObject(message);
+			out.flush();
 		} catch (Exception e) {
 			onLogError("[SendMessage] Fehler: " + e.getMessage());
 

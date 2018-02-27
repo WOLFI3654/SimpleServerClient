@@ -28,5 +28,9 @@ hs_err_pid*
 .settings
 *.jardesc
 
+# Test files
+src/TestClient.java
+src/TestServer.java
+
 # Maven Binaries
 /target/
