@@ -17,7 +17,7 @@ public class MyServer extends Server {
 
 	@Override
 	public void preStart() {
-		registerMethod("SOME_MESSAGE_IDENTIFICATION", new Executable() {
+		registerMethod("SOME_MESSAGE", new Executable() {
 			@Override
 			public void run(Datapackage msg, Socket socket) {
 				doSomethingWith(msg);
@@ -32,7 +32,7 @@ public class MyServer extends Server {
 Just make your own class, e. g. MyServer extending Server, simply use the original constructor and implement
 the preStart() method. In the preStart method just add
 ```java
-  registerMethod("IAMANIDENTIFIER", new Executable() {
+  registerMethod("IDENTIFIER", new Executable() {
 			@Override
 			public void run(Datapackage msg, Socket socket) {
 				  doSomethingWith(msg, socket);
@@ -44,7 +44,7 @@ for every identifier of an Datapackge the server received, you want to react to.
 
 EXAMPLE: So if you register "Ping" and an Executable responding "Pong" to the client, just register
 ```java
-  registerMethod("Ping", new Executable() {
+  registerMethod("PING", new Executable() {
 			@Override
 			public void run(Datapackage msg, Socket socket) {
 				  sendReply(socket, "Pong");
@@ -78,7 +78,7 @@ public class MyClient extends Client {
 	public MyClient(String id, String address, int port) {
 		super(id, address, port);
 
-		registerMethod("SomeMessageID", new Executable() {
+		registerMethod("SOME_MESSAGE", new Executable() {
 			@Override
 			public void run(Datapackage msg, Socket socket) {
 				System.out.println("Look! I got a new message from the server: " + msg.get(1));
@@ -98,7 +98,7 @@ Just make your own class, e. g. MyClient extending Client, simply use the origin
 
 To react on an incoming message, just add
 ```java
-		registerMethod("IAMANIDENTIFIER", new Executable() {
+		registerMethod("IDENTIFIER", new Executable() {
 			@Override
 			public void run(Datapackage msg, Socket socket) {
 				doSomethingWith(msg, socket);		
@@ -110,10 +110,11 @@ somewhere, I suggest the constructor itself, for every message ID you want to ha
 
 EXMAPLE for an incoming chat message from the server:
 ```java
-		registerMethod("Message", new Executable() {
+		registerMethod("PING", new Executable() {
 			@Override
 			public void run(Datapackage msg, Socket socket) {
-				System.out.println("Look! I got a new message from the server: " + msg.get(1));				
+				System.out.println("Look! I got a new message from the server: " + msg.get(1));	
+				// msg.get(1); should now return "Pong" in our example.
 			}
 		});
 ```
