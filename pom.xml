@@ -2,9 +2,9 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.blogspot.debukkitsblog</groupId>
   <artifactId>SimpleServerClient</artifactId>
-  <version>2.3.4</version>
+  <version>2.4.0</version>
   <name>SimpleServerClient</name>
-  <description>Offers very simple and easy-to-use Java classes for Client-Server-Client or just Server-Client applications doing all the work for connection setup, reconnection, timeout, keep-alive, etc. in the background.</description>
+  <description>A very lightweight and easy-to-use library for client-server-client or simply server-client applications in Java doing all the work for you: connection setup, reconnection, timeout, keep-alive etc. in the background. Simply tell the application what to send and receive, and the rest will happen by itself. That's almost magic!</description>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
@@ -13,9 +13,11 @@
     <resources>
       <resource>
         <directory>src</directory>
-        <excludes>
+        <!-- Include source code
+		<excludes>
           <exclude>**/*.java</exclude>
         </excludes>
+		-->
       </resource>
     </resources>
     <plugins>

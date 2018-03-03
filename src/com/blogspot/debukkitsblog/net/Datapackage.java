@@ -8,7 +8,7 @@ import java.util.ArrayList;
  * SimpleServerClient Clients and Servers
  * 
  * @author Leonard Bienbeck
- * @version 2.3.4
+ * @version 2.4.0
  */
 public class Datapackage extends ArrayList<Object> implements Serializable {
 

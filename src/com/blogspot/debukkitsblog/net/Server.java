@@ -20,7 +20,7 @@ import javax.net.ssl.SSLServerSocketFactory;
  * originally created on March 9, 2016 in Horstmar, Germany
  * 
  * @author Leonard Bienbeck
- * @version 2.3.3
+ * @version 2.4.0
  */
 public abstract class Server {
 
