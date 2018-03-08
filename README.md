@@ -1,7 +1,5 @@
 ### SimpleServerClient ###
 
-Offers very simple and easy-to-use Java classes for Client-Server-Client or just Server-Client applications doing all the work for connection setup, reconnection, timeout, keep-alive, etc. in the background.
-=======
 A very lightweight and easy-to-use library for client-server-client or simply server-client applications in Java doing all the work for you: connection setup, reconnection, timeout, keep-alive etc. in the background. Simply tell the application what to send and receive, and the rest will happen by itself. That's almost magic!
 
 **Code Quality**
