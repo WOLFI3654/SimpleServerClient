@@ -1,9 +1,10 @@
 ### SimpleServerClient ###
+
 A very lightweight and easy-to-use library for client-server-client or simply server-client applications in Java doing all the work for you: connection setup, reconnection, timeout, keep-alive etc. in the background. Simply tell the application what to send and receive, and the rest will happen by itself. That's almost magic!
 
 **Code Quality**
 
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/3d5b115186f44ecab613ac3f2ca0015b)](https://www.codacy.com/app/DeBukkIt/SimpleServerClient?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=DeBukkIt/SimpleServerClient&amp;utm_campaign=Badge_Grade)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/3d5b115186f44ecab613ac3f2ca0015b)](https://www.codacy.com/app/DeBukkIt/SimpleServerClient?utm_source=github.com&utm_medium=referral&utm_content=DeBukkIt/SimpleServerClient&utm_campaign=badger)
 
 # Performance Comparison
 
