@@ -8,7 +8,7 @@ import java.net.Socket;
  * identifiers.
  * 
  * @author Leonard Bienbeck
- * @version 2.4.0
+ * @version 2.4.1
  */
 public interface Executable {
 

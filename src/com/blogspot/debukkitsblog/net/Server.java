@@ -2,10 +2,10 @@ package com.blogspot.debukkitsblog.net;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.ConnectException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.channels.IllegalBlockingModeException;
@@ -20,7 +20,7 @@ import javax.net.ssl.SSLServerSocketFactory;
  * originally created on March 9, 2016 in Horstmar, Germany
  * 
  * @author Leonard Bienbeck
- * @version 2.4.0
+ * @version 2.4.1
  */
 public abstract class Server {
 
@@ -75,7 +75,8 @@ public abstract class Server {
 		this.autoRegisterEveryClient = autoRegisterEveryClient;
 		this.muted = false;
 
-		if (secureMode = useSSL) {
+		this.secureMode = useSSL;
+		if (secureMode) {
 			System.setProperty("javax.net.ssl.keyStore", "ssc.store");
 			System.setProperty("javax.net.ssl.keyStorePassword", "SimpleServerClient");
 		}
@@ -128,6 +129,7 @@ public abstract class Server {
 					try {
 						Thread.sleep(pingInterval);
 					} catch (InterruptedException e) {
+						// This exception does not need to result in any further action or output
 					}
 					broadcastMessage(new Datapackage("_INTERNAL_PING_", "OK"));
 				}
@@ -147,9 +149,11 @@ public abstract class Server {
 				public void run() {
 					while (server != null) {
 
+						
 						try {
 							onLog("[Server] Waiting for connection" + (secureMode ? " using SSL..." : "..."));
-							final Socket tempSocket = server.accept();
+							@SuppressWarnings("resource")
+							final Socket tempSocket = server.accept(); // potential resource leak. tempSocket might not be closed.
 
 							ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(tempSocket.getInputStream()));
 							Object raw = ois.readObject();
@@ -158,18 +162,22 @@ public abstract class Server {
 								final Datapackage msg = (Datapackage) raw;
 								onLog("[Server] Message received: " + msg);
 
+								// inspect all registered methods
 								for (final String current : idMethods.keySet()) {
+									// if the current method equals the identifier of the Datapackage...
 									if (msg.id().equalsIgnoreCase(current)) {
 										onLog("[Server] Executing method for identifier '" + msg.id() + "'");
+										// execute the Executable on a new thread
 										new Thread(new Runnable() {
+											@Override
 											public void run() {
 												// Run the method registered for the ID of this Datapackage
 												idMethods.get(current).run(msg, tempSocket);
-												// and close the temporary socket if it is not longer needed
+												// and close the temporary socket if it is no longer needed
 												if (!msg.id().equals(INTERNAL_LOGIN_ID)) {
 													try {
 														tempSocket.close();
-													} catch (Exception e) {
+													} catch (IOException e) {
 														e.printStackTrace();
 													}
 												}
@@ -181,13 +189,7 @@ public abstract class Server {
 
 							}
 
-						} catch (EOFException e) {
-							e.printStackTrace();
-						} catch (IllegalBlockingModeException e) {
-							e.printStackTrace();
-						} catch (IOException e) {
-							e.printStackTrace();
-						} catch (ClassNotFoundException e) {
+						} catch (IllegalBlockingModeException | IOException | ClassNotFoundException e) {
 							e.printStackTrace();
 						}
 
@@ -211,8 +213,7 @@ public abstract class Server {
 	 *            Datapackage will be "REPLY".
 	 */
 	public synchronized void sendReply(Socket toSocket, Object... datapackageContent) {
-		sendMessage(new RemoteClient(UUID.randomUUID().toString(), toSocket),
-				new Datapackage("REPLY", datapackageContent));
+		sendMessage(new RemoteClient(null, toSocket), new Datapackage("REPLY", datapackageContent));
 	}
 
 	/**
@@ -270,17 +271,17 @@ public abstract class Server {
 	 */
 	public synchronized void sendMessage(RemoteClient remoteClient, Datapackage message) {
 		try {
-			// Nachricht senden
+			// send message
 			if (!remoteClient.getSocket().isConnected()) {
-				throw new Exception("Socket not connected.");
+				throw new ConnectException("Socket not connected.");
 			}
 			ObjectOutputStream out = new ObjectOutputStream(new BufferedOutputStream(remoteClient.getSocket().getOutputStream()));
 			out.writeObject(message);
 			out.flush();
-		} catch (Exception e) {
-			onLogError("[SendMessage] Fehler: " + e.getMessage());
+		} catch (IOException e) {
+			onLogError("[Server] [Send Message] Error: " + e.getMessage());
 
-			// Bei Fehler: Socket aus Liste loeschen
+			// if an error occured: remove client from list
 			if (toBeDeleted != null) {
 				toBeDeleted.add(remoteClient);
 			} else {
@@ -288,20 +289,6 @@ public abstract class Server {
 				onClientRemoved(remoteClient);
 			}
 		}
-	}
-
-	/**
-	 * Use <code>sendMessage(RemoteClient remoteClient, Datapackage message)</code>
-	 * instead. Only the order of the parameters has changed.
-	 * 
-	 * @param message
-	 *            The message
-	 * @param remoteClient
-	 *            The client
-	 */
-	@Deprecated
-	public synchronized void sendMessage(Datapackage message, RemoteClient remoteClient) {
-		sendMessage(remoteClient, message);
 	}
 
 	/**
@@ -316,17 +303,17 @@ public abstract class Server {
 	public synchronized int broadcastMessageToGroup(String group, Datapackage message) {
 		toBeDeleted = new ArrayList<RemoteClient>();
 
-		// Nachricht an alle Sockets senden
-		int rxCounter = 0;
+		// send message to all clients
+		int txCounter = 0;
 		for (RemoteClient current : clients) {
 			if (current.getGroup().equals(group)) {
 				sendMessage(current, message);
-				rxCounter++;
+				txCounter++;
 			}
 		}
 
-		// Alle Sockets, die fehlerhaft waren, im Anschluss loeschen
-		rxCounter -= toBeDeleted.size();
+		// remove all clients which produced errors while sending
+		txCounter -= toBeDeleted.size();
 		for (RemoteClient current : toBeDeleted) {
 			clients.remove(current);
 			onClientRemoved(current);
@@ -334,7 +321,7 @@ public abstract class Server {
 
 		toBeDeleted = null;
 
-		return rxCounter;
+		return txCounter;
 	}
 
 	/**
@@ -347,15 +334,15 @@ public abstract class Server {
 	public synchronized int broadcastMessage(Datapackage message) {
 		toBeDeleted = new ArrayList<RemoteClient>();
 
-		// Nachricht an alle Sockets senden
-		int rxCounter = 0;
+		// send message to all clients
+		int txCounter = 0;
 		for (RemoteClient current : clients) {
 			sendMessage(current, message);
-			rxCounter++;
+			txCounter++;
 		}
 
-		// Alle Sockets, die fehlerhaft waren, im Anschluss loeschen
-		rxCounter -= toBeDeleted.size();
+		// remove all clients which produced errors while sending
+		txCounter -= toBeDeleted.size();
 		for (RemoteClient current : toBeDeleted) {
 			clients.remove(current);
 			onClientRemoved(current);
@@ -363,7 +350,7 @@ public abstract class Server {
 
 		toBeDeleted = null;
 
-		return rxCounter;
+		return txCounter;
 	}
 
 	/**
@@ -380,10 +367,9 @@ public abstract class Server {
 		if (identifier.equalsIgnoreCase(INTERNAL_LOGIN_ID) && autoRegisterEveryClient) {
 			throw new IllegalArgumentException("Identifier may not be '" + INTERNAL_LOGIN_ID + "'. "
 					+ "Since v1.0.1 the server automatically registers new clients. "
-					+ "To react on new client registed, use the onClientRegisters() Listener by overwriting it.");
-		} else {
-			idMethods.put(identifier, executable);
+					+ "To react on new client registed, use the onClientRegisters() listener by overwriting it.");
 		}
+		idMethods.put(identifier, executable);
 	}
 
 	/**
@@ -505,19 +491,6 @@ public abstract class Server {
 	 *            stored it normally to reach this client later.
 	 */
 	public void onClientRegistered(Datapackage msg, Socket socket) {
-		// Overwrite this method when extending this class
-	}
-
-	/**
-	 * Use <code>onClientRemoved(RemoteClient remoteClient)</code> instead. Only the
-	 * name of the method has changed.
-	 * 
-	 * @param socket
-	 *            The socket of the client that was removed from the list of
-	 *            reachable clients
-	 */
-	@Deprecated
-	public void onSocketRemoved(Socket socket) {
 		// Overwrite this method when extending this class
 	}
 

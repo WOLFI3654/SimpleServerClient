@@ -1,6 +1,5 @@
 package com.blogspot.debukkitsblog.net;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 
 /**
@@ -8,14 +7,14 @@ import java.util.ArrayList;
  * SimpleServerClient Clients and Servers
  * 
  * @author Leonard Bienbeck
- * @version 2.4.0
+ * @version 2.4.1
  */
-public class Datapackage extends ArrayList<Object> implements Serializable {
-
+public class Datapackage extends ArrayList<Object> {
+	
 	/**
 	 * 
 	 */
-	private static final long serialVersionUID = -6938942692437968120L;
+	private static final long serialVersionUID = 8501296964229015349L;
 	
 	private String senderID = "UNSIGNED";
 	private String senderGroupName = "UNSIGNED";

@@ -5,8 +5,10 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketException;
 import java.nio.channels.AlreadyConnectedException;
 import java.util.HashMap;
 import java.util.UUID;
@@ -18,7 +20,7 @@ import javax.net.ssl.SSLSocketFactory;
  * originally created on March 9, 2016 in Horstmar, Germany
  * 
  * @author Leonard Bienbeck
- * @version 2.4.0
+ * @version 2.4.1
  */
 public class Client {
 
@@ -34,9 +36,19 @@ public class Client {
 
 	protected int errorCount;
 
-	protected boolean autoKill;
 	protected boolean secureMode;
 	protected boolean muted;
+	protected boolean stopped;
+
+	/**
+	 * The default user id Datapackes are signed with. This is a type 4 pseudo
+	 * randomly generated UUID.
+	 */
+	public static final String DEFAULT_USER_ID = UUID.randomUUID().toString();
+	/**
+	 * The default group id Datapackages are signed with: <i>_DEFAULT_GROUP_</i>
+	 */
+	public static final String DEFAULT_GROUP_ID = "_DEFAULT_GROUP_";
 
 	/**
 	 * Constructs a simple client with just a hostname and port to connect to
@@ -47,7 +59,11 @@ public class Client {
 	 *            The port to connect to
 	 */
 	public Client(String hostname, int port) {
-		this(hostname, port, 10000, false, false, UUID.randomUUID().toString(), "_DEFAULT_GROUP_");
+		this(hostname, port, 10000, false, false, DEFAULT_USER_ID, DEFAULT_GROUP_ID);
+	}
+
+	public Client(String hostname, int port, int timeout) {
+		this(hostname, port, timeout, false, DEFAULT_USER_ID, DEFAULT_GROUP_ID);
 	}
 
 	/**
@@ -63,7 +79,7 @@ public class Client {
 	 *            The id the server may use to identify this client
 	 */
 	public Client(String hostname, int port, String id) {
-		this(hostname, port, 10000, false, false, id, "_DEFAULT_GROUP_");
+		this(hostname, port, 10000, false, id, DEFAULT_GROUP_ID);
 	}
 
 	/**
@@ -84,11 +100,44 @@ public class Client {
 	 *            clients
 	 */
 	public Client(String hostname, int port, String id, String group) {
-		this(hostname, port, 10000, false, false, id, group);
+		this(hostname, port, 10000, false, id, group);
+	}
+	
+	/**
+	 * Constructs a simple client with all possible configurations
+	 * 
+	 * @param hostname
+	 *            The hostname to connect to
+	 * @param port
+	 *            The port to connect to
+	 * @param timeout
+	 *            The timeout after a connection attempt will be given up
+	 * @param useSSL
+	 *            Whether a secure SSL connection should be used
+	 * @param id
+	 *            The id the server may use to identify this client
+	 * @param group
+	 *            The group name the server may use to identify this and similar
+	 *            clients
+	 */
+	public Client(String hostname, int port, int timeout, boolean useSSL, String id, String group) {
+		this.id = id;
+		this.group = group;
+
+		this.errorCount = 0;
+		this.address = new InetSocketAddress(hostname, port);
+		this.timeout = timeout;
+		
+		this.secureMode = useSSL;
+		if (secureMode) {
+			System.setProperty("javax.net.ssl.trustStore", "ssc.store");
+			System.setProperty("javax.net.ssl.keyStorePassword", "SimpleServerClient");
+		}
 	}
 
 	/**
-	 * Constructs a simple client with all possible configurations
+	 * Constructs a simple client with all possible configurations. <b>Warning: The
+	 * autoKill option is useless.</b> Rather use any other constructor instead.
 	 * 
 	 * @param hostname
 	 *            The hostname to connect to
@@ -107,6 +156,7 @@ public class Client {
 	 *            The group name the server may use to identify this and similar
 	 *            clients
 	 */
+	@Deprecated
 	public Client(String hostname, int port, int timeout, boolean autoKill, boolean useSSL, String id, String group) {
 		this.id = id;
 		this.group = group;
@@ -114,9 +164,9 @@ public class Client {
 		this.errorCount = 0;
 		this.address = new InetSocketAddress(hostname, port);
 		this.timeout = timeout;
-		this.autoKill = autoKill;
 
-		if (secureMode = useSSL) {
+		this.secureMode = useSSL;
+		if (secureMode) {
 			System.setProperty("javax.net.ssl.trustStore", "ssc.store");
 			System.setProperty("javax.net.ssl.keyStorePassword", "SimpleServerClient");
 		}
@@ -158,7 +208,7 @@ public class Client {
 			tempSocket.isConnected();
 			tempSocket.close();
 			return true;
-		} catch (Exception e) {
+		} catch(IOException e) {
 			return false;
 		}
 	}
@@ -182,19 +232,32 @@ public class Client {
 	 * broadcasts from the server)
 	 */
 	public void start() {
+		stopped = false;
 		login();
 		startListening();
+	}
+	
+	/**
+	 * Stops the client. The connection to the server is interrupted as soon as
+	 * possible and then no further Datapackages are received. <b>Warning</b>: The
+	 * whole process of stopping can take as long as the server needs to the next
+	 * Datapackage, which will wake up the Client and cause him to stop.
+	 */
+	public void stop() {
+		stopped = true;
+		onLog("[Client] Stopping...");
 	}
 
 	/**
 	 * Called to repair the connection if it is lost
 	 */
 	protected void repairConnection() {
-		onLog("[Client-Connection-Repair] Repairing connection...");
+		onLog("[Client] [Connection-Repair] Repairing connection...");
 		if (loginSocket != null) {
 			try {
 				loginSocket.close();
 			} catch (IOException e) {
+				// This exception does not need to result in any further action or output
 			}
 			loginSocket = null;
 		}
@@ -208,7 +271,11 @@ public class Client {
 	 * later
 	 */
 	protected void login() {
-		// Verbindung herstellen
+		if(stopped) {
+			return;
+		}
+		
+		// 1. connect
 		try {
 			onLog("[Client] Connecting" + (secureMode ? " using SSL..." : "..."));
 			if (loginSocket != null && loginSocket.isConnected()) {
@@ -216,31 +283,34 @@ public class Client {
 			}
 
 			if (secureMode) {
-				loginSocket = ((SSLSocketFactory) SSLSocketFactory.getDefault()).createSocket(address.getAddress(),
-						address.getPort());
+				loginSocket = ((SSLSocketFactory) SSLSocketFactory.getDefault()).createSocket(address.getAddress(), address.getPort());
 			} else {
 				loginSocket = new Socket();
 				loginSocket.connect(this.address, this.timeout);
 			}
 
 			onLog("[Client] Connected to " + loginSocket.getRemoteSocketAddress());
-		} catch (IOException ex) {
-			ex.printStackTrace();
+			
+			// 2. login
+			try {
+				onLog("[Client] Logging in...");
+				ObjectOutputStream out = new ObjectOutputStream(new BufferedOutputStream(loginSocket.getOutputStream()));
+				Datapackage loginPackage = new Datapackage("_INTERNAL_LOGIN_", id, group);
+				loginPackage.sign(id, group);
+				out.writeObject(loginPackage);
+				out.flush();
+				onLog("[Client] Logged in.");
+				onReconnect();
+			} catch (IOException ex) {
+				onLogError("[Client] Login failed.");
+			}
+			
+		} catch(ConnectException e) {
+			onLogError("[Client] Connection failed: " + e.getMessage());
 			onConnectionProblem();
-		}
-
-		// Einloggen
-		try {
-			onLog("[Client] Logging in...");
-			ObjectOutputStream out = new ObjectOutputStream(new BufferedOutputStream(loginSocket.getOutputStream()));
-			Datapackage loginPackage = new Datapackage("_INTERNAL_LOGIN_", id, group);
-			loginPackage.sign(id, group);
-			out.writeObject(loginPackage);
-			out.flush();
-			onLog("[Client] Logged in.");
-			onReconnect();
-		} catch (IOException ex) {
-			onLogError("[Client] Login failed.");
+		} catch (IOException e) {
+			e.printStackTrace();
+			onConnectionProblem();
 		}
 	}
 
@@ -251,7 +321,7 @@ public class Client {
 	 */
 	protected void startListening() {
 
-		// Wenn der ListeningThread lebt, nicht neu starten!
+		// do not restart the listening thread if it is already running
 		if (listeningThread != null && listeningThread.isAlive()) {
 			return;
 		}
@@ -260,10 +330,10 @@ public class Client {
 			@Override
 			public void run() {
 
-				// Staendig wiederholen
-				while (true) {
+				// always repeat if not stopped
+				while (!stopped) {
 					try {
-						// Bei fehlerhafter Verbindung, diese reparieren
+						// repait connection if something went wrong with the connection
 						if (loginSocket != null && !loginSocket.isConnected()) {
 							while (!loginSocket.isConnected()) {
 								repairConnection();
@@ -278,18 +348,27 @@ public class Client {
 
 						onConnectionGood();
 
-						// Auf eingehende Nachricht warten und diese bei Eintreffen lesen
+						// wait for incoming messages and read them
 						ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(loginSocket.getInputStream()));
 						Object raw = ois.readObject();
 
-						// Nachricht auswerten
+						// if the client has been stopped while this thread was listening to an arriving
+						// Datapackage, stop the proccess at this point
+						if (stopped) {
+							return;
+						}
+						
 						if (raw instanceof Datapackage) {
 							final Datapackage msg = (Datapackage) raw;
-
+							
+							// inspect all registered methods
 							for (final String current : idMethods.keySet()) {
-								if (msg.id().equalsIgnoreCase(current)) {
+								// if the identifier of a method equals the identifier of the Datapackage...
+								if (current.equalsIgnoreCase(msg.id())) {
 									onLog("[Client] Message received. Executing method for '" + msg.id() + "'...");
+									// execute the registered Executable on a new thread
 									new Thread(new Runnable() {
+										@Override
 										public void run() {
 											idMethods.get(current).run(msg, loginSocket);
 										}
@@ -300,27 +379,26 @@ public class Client {
 
 						}
 
-					} catch (Exception ex) {
+					} catch(SocketException e) {
+						onConnectionProblem();
+						onLogError("[Client] Connection lost");
+						repairConnection();
+					} catch (ClassNotFoundException | IOException | InterruptedException ex) {
 						ex.printStackTrace();
 						onConnectionProblem();
-						onLogError("Server offline?");
-						if ((++errorCount > 30) && autoKill) {
-							onLogError("Server dauerhaft nicht erreichbar, beende.");
-							System.exit(0);
-						} else {
-							repairConnection();
-						}
+						onLogError("[Client] Error: The connection to the server is currently interrupted!");
+						repairConnection();
 					}
 
-					// Bis hieher fehlerfrei? Dann errorCount auf Null setzen:
+					// reset errorCount if no errors occured until this point
 					errorCount = 0;
 
-				} // while true
+				} // while not stopped
 
-			}// run
+			} // run
 		});
 
-		// Thread starten
+		// start the thread
 		listeningThread.start();
 	}
 
@@ -339,8 +417,7 @@ public class Client {
 		try {
 			Socket tempSocket;
 			if (secureMode) {
-				tempSocket = ((SSLSocketFactory) SSLSocketFactory.getDefault()).createSocket(address.getAddress(),
-						address.getPort());
+				tempSocket = ((SSLSocketFactory) SSLSocketFactory.getDefault()).createSocket(address.getAddress(), address.getPort());
 			} else {
 				tempSocket = new Socket();
 				tempSocket.connect(address, timeout);
@@ -361,8 +438,8 @@ public class Client {
 			if (raw instanceof Datapackage) {
 				return (Datapackage) raw;
 			}
-		} catch (Exception ex) {
-			onLogError("[Client] Error while sending message:");
+		} catch (IOException | ClassNotFoundException ex) {
+			onLogError("[Client] Error while sending message");
 			ex.printStackTrace();
 		}
 
@@ -381,8 +458,8 @@ public class Client {
 	 * @return The server's response. The identifier of this Datapackage should be
 	 *         "REPLY" by default, the rest is custom data.
 	 */
-	public Datapackage sendMessage(String ID, String... content) {
-		return sendMessage(new Datapackage(ID, (Object[]) content));
+	public Datapackage sendMessage(String ID, Object... content) {
+		return sendMessage(new Datapackage(ID, content));
 	}
 
 	/**
@@ -449,8 +526,9 @@ public class Client {
 	 *            The content of the output to be made
 	 */
 	public void onLog(String message) {
-		if (!muted)
+		if (!muted) {
 			System.out.println(message);
+		}
 	}
 
 	/**
@@ -464,8 +542,9 @@ public class Client {
 	 *            The content of the error output to be made
 	 */
 	public void onLogError(String message) {
-		if (!muted)
+		if (!muted) {
 			System.err.println(message);
+		}
 	}
 
 }

@@ -76,6 +76,7 @@ public class Crypter {
 	 *            sixteen characters, result in the same AES key.
 	 * @return An array of bytes containing the encrypted data
 	 * @throws Exception
+	 *             If something went wrong with the AES algorithm.
 	 */
 	public static byte[] encrypt(byte[] data, String rawKey) throws Exception {
 		Key key = generateKey(rawKey);
@@ -97,6 +98,8 @@ public class Crypter {
 	 *            sixteen characters, result in the same AES key.
 	 * @return An array of bytes containing the decrypted data
 	 * @throws Exception
+	 *             If something went wrong. This might happen when the password is
+	 *             wrong.
 	 */
 	public static byte[] decrypt(byte[] encryptedData, String rawKey) throws Exception {
 		Key key = generateKey(rawKey);
@@ -112,9 +115,12 @@ public class Crypter {
 	 * 16 bytes (128 bit). Therefore be careful! Different passwords, starting with
 	 * the same sixteen characters, result in the same AES key.
 	 * 
-	 * @param key A String of 128 bit (16 characters)
-	 * @return An AES compatible Key object used by the encrypter to encrypt the data
+	 * @param key
+	 *            A String of 128 bit (16 characters)
+	 * @return An AES compatible Key object used by the encrypter to encrypt the
+	 *         data
 	 * @throws Exception
+	 *             If something went wrong with the AES algorithm.
 	 */
 	private static Key generateKey(String key) throws Exception {
 		String resultKey = key;
