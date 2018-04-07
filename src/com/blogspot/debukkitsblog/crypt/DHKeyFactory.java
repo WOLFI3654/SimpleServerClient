@@ -10,7 +10,7 @@ public class DHKeyFactory {
 	public DHKeyFactory() {
 		System.out.println("[DHKey] Generating secure key...");
 		p = new BigInteger(2048, 12, new Random());
-		g = new BigInteger(String.valueOf(12 - new Random().nextInt(10)));
+		g = new BigInteger(String.valueOf(4 - new Random().nextInt(3)));
 		do {
 			s = new BigInteger(160, new Random());
 		} while (s.compareTo(new BigInteger("2")) == -1 || s.compareTo(p.subtract(new BigInteger("1"))) == 0);

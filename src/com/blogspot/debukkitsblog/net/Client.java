@@ -2,6 +2,7 @@ package com.blogspot.debukkitsblog.net;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -438,6 +439,8 @@ public class Client {
 			if (raw instanceof Datapackage) {
 				return (Datapackage) raw;
 			}
+		} catch(EOFException ex) {
+			onLogError("[Client] Error right after sending message: EOFException (did the server forget to send a reply?)");
 		} catch (IOException | ClassNotFoundException ex) {
 			onLogError("[Client] Error while sending message");
 			ex.printStackTrace();
