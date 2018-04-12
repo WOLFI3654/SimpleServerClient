@@ -37,7 +37,7 @@ public abstract class Server {
 	protected boolean secureMode;
 
 	protected boolean muted;
-	protected long pingInterval = 30000;
+	protected long pingInterval = 30*1000; // 30 seconds
 
 	protected static final String INTERNAL_LOGIN_ID = "_INTERNAL_LOGIN_";
 
@@ -151,10 +151,12 @@ public abstract class Server {
 
 						
 						try {
+							// Wait for client to connect
 							onLog("[Server] Waiting for connection" + (secureMode ? " using SSL..." : "..."));
 							@SuppressWarnings("resource")
 							final Socket tempSocket = server.accept(); // potential resource leak. tempSocket might not be closed.
 
+							// Read the client's message
 							ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(tempSocket.getInputStream()));
 							Object raw = ois.readObject();
 
@@ -256,8 +258,7 @@ public abstract class Server {
 	 * @param datapackageContent
 	 *            The content of the message
 	 */
-	public synchronized void sendMessage(RemoteClient remoteClient, String datapackageId,
-			Object... datapackageContent) {
+	public synchronized void sendMessage(RemoteClient remoteClient, String datapackageId, Object... datapackageContent) {
 		sendMessage(remoteClient, new Datapackage(datapackageId, datapackageContent));
 	}
 
@@ -428,7 +429,7 @@ public abstract class Server {
 		try {
 
 			if (secureMode) {
-				server = ((SSLServerSocketFactory) SSLServerSocketFactory.getDefault()).createServerSocket(port);
+				server = SSLServerSocketFactory.getDefault().createServerSocket(port);
 			} else {
 				server = new ServerSocket(port);
 			}

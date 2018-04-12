@@ -60,7 +60,7 @@ public class Client {
 	 *            The port to connect to
 	 */
 	public Client(String hostname, int port) {
-		this(hostname, port, 10000, false, false, DEFAULT_USER_ID, DEFAULT_GROUP_ID);
+		this(hostname, port, 10000, false, DEFAULT_USER_ID, DEFAULT_GROUP_ID);
 	}
 
 	public Client(String hostname, int port, int timeout) {
@@ -129,43 +129,6 @@ public class Client {
 		this.address = new InetSocketAddress(hostname, port);
 		this.timeout = timeout;
 		
-		this.secureMode = useSSL;
-		if (secureMode) {
-			System.setProperty("javax.net.ssl.trustStore", "ssc.store");
-			System.setProperty("javax.net.ssl.keyStorePassword", "SimpleServerClient");
-		}
-	}
-
-	/**
-	 * Constructs a simple client with all possible configurations. <b>Warning: The
-	 * autoKill option is useless.</b> Rather use any other constructor instead.
-	 * 
-	 * @param hostname
-	 *            The hostname to connect to
-	 * @param port
-	 *            The port to connect to
-	 * @param timeout
-	 *            The timeout after a connection attempt will be given up
-	 * @param autoKill
-	 *            Whether the program should exit after 30 failed connection
-	 *            attempts
-	 * @param useSSL
-	 *            Whether a secure SSL connection should be used
-	 * @param id
-	 *            The id the server may use to identify this client
-	 * @param group
-	 *            The group name the server may use to identify this and similar
-	 *            clients
-	 */
-	@Deprecated
-	public Client(String hostname, int port, int timeout, boolean autoKill, boolean useSSL, String id, String group) {
-		this.id = id;
-		this.group = group;
-
-		this.errorCount = 0;
-		this.address = new InetSocketAddress(hostname, port);
-		this.timeout = timeout;
-
 		this.secureMode = useSSL;
 		if (secureMode) {
 			System.setProperty("javax.net.ssl.trustStore", "ssc.store");
@@ -284,7 +247,7 @@ public class Client {
 			}
 
 			if (secureMode) {
-				loginSocket = ((SSLSocketFactory) SSLSocketFactory.getDefault()).createSocket(address.getAddress(), address.getPort());
+				loginSocket = SSLSocketFactory.getDefault().createSocket(address.getAddress(), address.getPort());
 			} else {
 				loginSocket = new Socket();
 				loginSocket.connect(this.address, this.timeout);
@@ -295,11 +258,15 @@ public class Client {
 			// 2. login
 			try {
 				onLog("[Client] Logging in...");
+				// open an outputstream
 				ObjectOutputStream out = new ObjectOutputStream(new BufferedOutputStream(loginSocket.getOutputStream()));
+				// create a magic login package
 				Datapackage loginPackage = new Datapackage("_INTERNAL_LOGIN_", id, group);
 				loginPackage.sign(id, group);
+				// send the package to the server
 				out.writeObject(loginPackage);
 				out.flush();
+				// note: this special method does not expect the server to send a reply
 				onLog("[Client] Logged in.");
 				onReconnect();
 			} catch (IOException ex) {
@@ -416,26 +383,33 @@ public class Client {
 	 */
 	public Datapackage sendMessage(Datapackage message, int timeout) {
 		try {
+			// connect to the target client's socket
 			Socket tempSocket;
 			if (secureMode) {
-				tempSocket = ((SSLSocketFactory) SSLSocketFactory.getDefault()).createSocket(address.getAddress(), address.getPort());
+				tempSocket = SSLSocketFactory.getDefault().createSocket(address.getAddress(), address.getPort());
 			} else {
 				tempSocket = new Socket();
 				tempSocket.connect(address, timeout);
 			}
 
+			// Open output stream and write message
 			ObjectOutputStream tempOOS = new ObjectOutputStream(new BufferedOutputStream(tempSocket.getOutputStream()));
 			message.sign(id, group);
 			tempOOS.writeObject(message);
 			tempOOS.flush();
 
+			// open input stream and wait for server's response. Warning: If the server
+			// won't send an answer, this lines might block the program or throw an
+			// EOFException
 			ObjectInputStream tempOIS = new ObjectInputStream(new BufferedInputStream(tempSocket.getInputStream()));
 			Object raw = tempOIS.readObject();
 
+			// close all streams and the socket
 			tempOOS.close();
 			tempOIS.close();
 			tempSocket.close();
 
+			// return the server's reply if it is a Datapackage
 			if (raw instanceof Datapackage) {
 				return (Datapackage) raw;
 			}
