@@ -513,6 +513,7 @@ public abstract class Server {
 		if (server != null) {
 			try {
 				server.close();
+				server = null;
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
