@@ -29,6 +29,7 @@ hs_err_pid*
 *.jardesc
 
 # Test files
+src/StartSSCTest.java
 src/TestClient.java
 src/TestServer.java
 

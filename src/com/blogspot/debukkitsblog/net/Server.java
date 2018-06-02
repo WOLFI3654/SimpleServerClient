@@ -20,7 +20,7 @@ import javax.net.ssl.SSLServerSocketFactory;
  * originally created on March 9, 2016 in Horstmar, Germany
  * 
  * @author Leonard Bienbeck
- * @version 2.4.1
+ * @version 2.4.2
  */
 public abstract class Server {
 
@@ -45,15 +45,74 @@ public abstract class Server {
 	 * Constructs a simple server listening on the given port. Every client that
 	 * connects to this server is registered and can receive broadcast and direct
 	 * messages, the connection will be kept alive using a ping and ssl will not be
-	 * used.
+	 * used. <b>This constructor is deprecated! It is strongly recommended to
+	 * substitute it with the constructor that has the option <i>muted</i> as its
+	 * last parameter.</b>
 	 * 
 	 * @param port
 	 *            The port to listen on
 	 */
+	@Deprecated
 	public Server(int port) {
 		this(port, true, true, false);
 	}
+	
+	/**
+	 * Constructs a simple server listening on the given port. Every client that
+	 * connects to this server is registered and can receive broadcast and direct
+	 * messages, the connection will be kept alive using a ping and ssl will not be
+	 * used.
+	 * 
+	 * @param port
+	 *            The port to listen on
+	 * @param muted
+	 *            Whether the mute mode should be activated on startup
+	 */
+	public Server(int port, boolean muted) {
+		this(port, true, true, false, muted);
+	}
 
+	/**
+	 * Constructs a simple server with all possible configurations. <b>This
+	 * constructor is deprecated! It is strongly recommended to substitute it with
+	 * the constructor that has the option <i>muted</i> as its last parameter.</b>
+	 * 
+	 * @param port
+	 *            The port to listen on
+	 * @param autoRegisterEveryClient
+	 *            Whether a client that connects should be registered to send it
+	 *            broadcast and direct messages later
+	 * @param keepConnectionAlive
+	 *            Whether the connection should be kept alive using a ping package.
+	 *            The transmission interval can be set using
+	 *            <code>setPingInterval(int seconds)</code>.
+	 * @param useSSL
+	 *            Whether SSL should be used to establish a secure connection
+	 */
+	@Deprecated
+	public Server(int port, boolean autoRegisterEveryClient, boolean keepConnectionAlive, boolean useSSL) {
+		this.clients = new ArrayList<RemoteClient>();
+		this.port = port;
+		this.autoRegisterEveryClient = autoRegisterEveryClient;
+		this.muted = false;
+
+		this.secureMode = useSSL;
+		if (secureMode) {
+			System.setProperty("javax.net.ssl.keyStore", "ssc.store");
+			System.setProperty("javax.net.ssl.keyStorePassword", "SimpleServerClient");
+		}
+		if (autoRegisterEveryClient) {
+			registerLoginMethod();
+		}
+		preStart();
+
+		start();
+
+		if (keepConnectionAlive) {
+			startPingThread();
+		}
+	}
+	
 	/**
 	 * Constructs a simple server with all possible configurations
 	 * 
@@ -68,12 +127,14 @@ public abstract class Server {
 	 *            <code>setPingInterval(int seconds)</code>.
 	 * @param useSSL
 	 *            Whether SSL should be used to establish a secure connection
+	 * @param muted
+	 *            Whether the mute mode should be activated on startup
 	 */
-	public Server(int port, boolean autoRegisterEveryClient, boolean keepConnectionAlive, boolean useSSL) {
+	public Server(int port, boolean autoRegisterEveryClient, boolean keepConnectionAlive, boolean useSSL, boolean muted) {
 		this.clients = new ArrayList<RemoteClient>();
 		this.port = port;
 		this.autoRegisterEveryClient = autoRegisterEveryClient;
-		this.muted = false;
+		this.muted = muted;
 
 		this.secureMode = useSSL;
 		if (secureMode) {
@@ -154,7 +215,7 @@ public abstract class Server {
 							// Wait for client to connect
 							onLog("[Server] Waiting for connection" + (secureMode ? " using SSL..." : "..."));
 							@SuppressWarnings("resource")
-							final Socket tempSocket = server.accept(); // potential resource leak. tempSocket might not be closed.
+							final Socket tempSocket = server.accept(); // potential resource leak, tempSocket might not be closed!
 
 							// Read the client's message
 							ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(tempSocket.getInputStream()));
@@ -464,7 +525,38 @@ public abstract class Server {
 	 * @return The number of clients registered
 	 */
 	public synchronized int getClientCount() {
-		return clients.size();
+		return clients != null ? clients.size() : 0;
+	}
+	
+	/**
+	 * Checks whether a RemoteClient with the given ID is currently connected to the
+	 * server
+	 * 
+	 * @param clientId
+	 *            The clients ID
+	 * @return true, if a RemoteClient with ID <i>clientId</i> is connected to the
+	 *         server
+	 */
+	public boolean isClientIdConnected(String clientId) {
+		if(clients != null && clients.size() > 0) {
+			// Iterate all clients connected
+			for(RemoteClient c : clients) {
+				// Check client exists and its socket is connected
+				if(c.getId().equals(clientId) && c.getSocket() != null && c.getSocket().isConnected()) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
+	/**
+	 * Checks whether any client is currently connected to the server
+	 * 
+	 * @return true, if at least one client is connected to the server
+	 */
+	public boolean isAnyClientConnected() {
+		return getClientCount() > 0;
 	}
 
 	/**
@@ -518,8 +610,9 @@ public abstract class Server {
 	 *            The content of the output to be made
 	 */
 	public void onLog(String message) {
-		if (!muted)
+		if (!muted) {
 			System.out.println(message);
+		}
 	}
 
 	/**
@@ -533,8 +626,9 @@ public abstract class Server {
 	 *            The content of the error output to be made
 	 */
 	public void onLogError(String message) {
-		if (!muted)
+		if (!muted) {
 			System.err.println(message);
+		}
 	}
 
 	/**
@@ -591,6 +685,15 @@ public abstract class Server {
 
 		public Socket getSocket() {
 			return socket;
+		}
+		
+		/**
+		 * Returns a String representing the RemoteClient, format is <i>[RemoteClient ID
+		 * (GROUP) @ SOCKET_REMOTE_ADDRESS]</i>
+		 */
+		@Override
+		public String toString() {
+			return "[RemoteClient: " + id + " (" + group + ") @ " + socket.getRemoteSocketAddress() + "]";
 		}
 	}
 
